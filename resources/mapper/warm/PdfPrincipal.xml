@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.warm.dao.PdfPrincipalDao">
+
+	<select id="getPrincipalPhoneBychId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		su.mobile phone, dd.sn,d.addr, d.name devName,o.name
+		orgName,c.name chName
+		from
+		pdf_principal pp
+		INNER JOIN sys_user su ON pp.user_id = su.id
+		inner join t_device d on d.org_id
+		= pp.pdf_id
+		left join
+		t_org o on o.id = d.org_id
+		inner join t_channel c on c.dev_id = d.id
+		inner join
+		(select * from
+		t_device where dev_type = 109) dd on dd.org_id = d.org_id
+		WHERE c.id = #{chId} and su.login_flag = 1 limit 1	
+		
+	</select>
+
+	<select id="getPrincipalPhoneBydevId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		su.mobile phone, dd.sn,d.addr, d.name devName,o.name orgName
+		from pdf_principal pp
+		INNER JOIN sys_user su ON pp.user_id = su.id
+		inner join t_device d on d.org_id = pp.pdf_id
+		left join t_org o on o.id = d.org_id
+		inner join
+		(select * from t_device where dev_type = 109) dd on dd.org_id = d.org_id
+		WHERE d.id = #{devId} and su.login_flag = 1 limit 1
+	</select>
+
+     <!-- zheli -->
+    <insert id="insertMessageLog">
+        insert into pdf_message_log(log_ch_id,type_id,name,time,status,level,dev_type,addr,alarm_value,message_type,content,phones
+        )
+        values(#{chId},#{typeId},#{name},now(),#{status},#{level},#{devType},#{addr},#{alarmValue},#{messageType},#{content},#{phones}
+        )
+    </insert>
+
+    <select id="checkExpirationTime" resultType="java.lang.Integer">
+        select
+        
+        case when 
+        ROUND(maxTime - diffTime,0)  > 10000 then 2100 else ROUND(maxTime - diffTime,0) end        
+        numTime     
+        
+        from (
+        select pc.model_type,max(m.time),(now() - max(m.time)) maxTime,
+        UNIX_TIMESTAMP(date_add(concat('1970-01-01 ',pc.model_type ), interval 8 HOUR)) diffTime
+        from t_channel c
+        inner join
+        t_device d on d.id = c.dev_id
+        inner join pdf_code pc on pc.dev_type = d.dev_type and pc.status = 6
+        left join
+        pdf_message_log m on m.log_ch_id = c.id
+        where m.status = #{status} and m.log_ch_id = #{chId}
+        <if test="level !=null and level !=''">
+            and m.level = #{level}
+        </if>
+        ) n
+    </select>
+
+    <select id="checkExpirationByChId" resultType="java.lang.String">
+        select phones from pdf_message_log where status = 1 and log_ch_id = #{chId} ORDER BY time desc limit 1
+    </select>
+
+    <select id="getCodeCount" resultType="java.lang.Integer">
+        select
+        case when 
+        tc.count is null or tc.count = '' or tc.type_id !=3 then 0 else tc.count end count
+        from t_channel c 
+        left join t_code tc on tc.id = c.ch_type and tc.type_id = c.type_id
+        where 
+        c.id = #{chId}
+    </select>
+
+	<select id="selecthis" resultType="com.jeeplus.common.persistence.MapEntity">
+		select h.id,h.ch_id,h.history_value,h.history_time from (
+		select h.ch_id, max(history_time) date from t_history_data_final h
+		inner join t_channel c on c.id = h.ch_id
+		where ch_type = 403 and history_time &gt; '2022-05-01' and history_time &lt; '2022-06-01'
+		group by ch_id,DATE_FORMAT(history_time, '%Y-%m-%d %H')
+	
+		UNION
+	
+		select h.ch_id, min(history_time) date from t_history_data_final h
+		inner join t_channel c on c.id = h.ch_id
+		where ch_type = 403 and history_time &gt; '2022-05-01' and history_time &lt; '2022-06-01'
+		group by ch_id,DATE_FORMAT(history_time, '%Y-%m-%d %H')
+		) m inner join t_history_data_final h on h.ch_id = m.ch_id and h.history_time = m.date
+		ORDER BY m.ch_id,m.date
+	</select>    
+
+
+</mapper>

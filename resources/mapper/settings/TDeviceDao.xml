@@ -1,0 +1,1061 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TDeviceDao">
+
+	<sql id="tDeviceColumns">
+		a.id AS "id",
+		a.org_id AS "orgId",
+		a.dev_type AS "devType",
+		a.parent_id AS "parentId",
+		a.type_id AS "typeId",
+		a.name AS "name",
+		concat(a.addr,a.name) AS "addr",
+		a.picture_path as "picturePath",
+		a.unit_type AS "unitType",
+		a.firmware_version AS "firmwareVersion",
+		a.vendor_information AS "vendorInformation",
+		a.coords_x AS "coordsX",
+		a.coords_y AS "coordsY",
+		a.sn AS "sn",
+		a.order_no AS "orderNo",
+		a.not_use AS "notUse",
+		ar.name AS "area.name",
+		ar.parent_ids AS "area.parentIds",
+		a.del_flag AS "delFlag",
+		a.create_by AS "createBy.id",
+		a.create_date AS "createDate",
+		a.update_by AS "updateBy.id",
+		a.update_date AS "updateDate",
+		a.remarks AS "remarks"
+	</sql>
+
+	<sql id="tDeviceJoins">
+		LEFT JOIN t_org ar ON ar.id = a.org_id
+	</sql>
+
+	<select id="get" resultType="TDevice">
+		SELECT
+		b.name as parentName,
+		<include refid="tDeviceColumns" />
+		FROM t_device a
+		<include refid="tDeviceJoins" />
+		LEFT JOIN t_device b on b.id = a.parent_id
+		WHERE a.id = #{id}
+	</select>
+
+	<!-- 获取from -->
+	<select id="getDeviceFrom" resultType="com.jeeplus.common.persistence.MapEntity">
+		select ${deviceFromList} from t_device a
+		LEFT JOIN t_device_detail b on
+		a.id = b.id
+		LEFT JOIN t_code c on a.dev_type = c.id
+		and a.type_id = c.type_id
+		LEFT JOIN t_org d on a.org_id = d.id
+		where
+		a.id = #{id}
+	</select>
+	
+	
+    <select id="getChannelsById" resultType="com.jeeplus.common.persistence.MapEntity">
+    
+        select FORMAT((real_value-param2)/param1,param0) realValue,tc.monad,tc.name codeName,c.ch_type chType,c.type_id typeId,
+        case when dev_type  = 243 then left(c.name,2) else 
+        ifnull(pcb.order_no,d.name) end  pname,
+        IFNULL(pcb.name,c.name ) name,CONCAT(c.id) chId,c.ch_no chNo, case when o.type &gt; 5 then o.name else '' end loopName,
+        case when (o.type = 5 or c.logic_org_id = 100000) then '' else CONCAT(c.logic_org_id) end loopId
+        
+        from t_channel c  left join t_device d on d.id = c.dev_id 
+        left join t_org o on o.id = c.logic_org_id
+        left join t_code tc on tc.id = c.ch_type and tc.type_id = c.type_id
+
+        left join pdf_code_buried  pcb on pcb.ch_no = c.ch_no and pcb.ch_type= c.ch_type and pcb.type_id = c.type_id and pcb.`status` =1 and pcb.name !=''
+        left join t_real_data r on r.id =c.id
+        where dev_id = #{devId}  order by pcb.order_no,c.id
+    </select>
+    
+    
+    
+   
+	
+	<select id="findList" resultType="TDevice">
+		SELECT
+		<include refid="tDeviceColumns" />
+		FROM t_device a
+		<include refid="tDeviceJoins" />
+		<where>
+			a.del_flag = #{DEL_FLAG_NORMAL}
+			<if test="orgId != null and orgId != ''">
+				AND a.org_id = #{orgId}
+			</if>
+			<if test="parentId != null and parentId != ''">
+				AND a.parent_id = #{parentId}
+			</if>
+			<if test="devType != null and devType != ''">
+				AND a.dev_type = #{devType}
+			</if>
+			<if test="typeId != null and typeId != ''">
+				AND a.type_id = #{typeId}
+			</if>
+			<if test="name != null and name != ''">
+				AND a.name LIKE
+				<if test="dbName == 'oracle'">'%'||#{name}||'%'</if>
+				<if test="dbName == 'mssql'">'%'+#{name}+'%'</if>
+				<if test="dbName == 'mysql'">concat('%',#{name},'%')</if>
+			</if>
+			<if test="addr != null and addr != ''">
+				AND a.addr = #{addr}
+			</if>
+			<if test="sn != null and sn != ''">
+				AND a.sn = #{sn}
+			</if>
+			<if test="notUse != null and notUse != ''">
+				AND a.not_use = #{notUse}
+			</if>
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.update_date DESC
+			</otherwise>
+		</choose>
+	</select>
+	
+	
+	<!-- 更新orgID下的区域 -->
+	<update id="updateChannel">
+		UPDATE t_channel set logic_org_id = #{orgId} where dev_id = #{devId}
+	</update>
+
+	<!-- SELECT * FROM t_org where code like '%103501%' -->
+	<select id="deviceList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select ${nameConfig} from t_device a
+		LEFT JOIN t_device_detail b on a.id = b.id
+		LEFT JOIN t_code c on a.dev_type = c.id
+		and a.type_id = c.type_id
+		LEFT JOIN t_org d on a.org_id = d.id
+		<where>
+			a.del_flag = 0 AND a.org_id in (SELECT id from t_org where parent_ids
+			like concat('%',#{orgId},'%') or id = #{orgId})
+			<if test="name != null and name !=''">
+				AND a.name like concat('%',#{name},'%')
+			</if>
+			<if test="codeName != null and codeName !=''">
+				AND c.name = #{codeName}
+			</if>
+			<if test="notUse != null and notUse !=''">
+				AND a.not_use = #{notUse}
+			</if>
+		</where>
+		order by a.create_date desc,a.id desc
+	</select>
+    
+	<select id="codeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select * from t_code2 where type_id=1
+	</select>
+
+	<select id="deviceAllList" resultType="TDevice">
+		SELECT
+		<include refid="tDeviceColumns" />
+		FROM t_device a
+		<include refid="tDeviceJoins" />
+	</select>
+
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id"
+		parameterType="com.jeeplus.modules.settings.entity.TDevice">
+		INSERT INTO t_device(
+		parent_id,
+		org_id,
+		dev_type,
+		type_id,
+		name,
+		addr,
+		unit_type,
+		firmware_version,
+		vendor_information,
+		sn,
+		order_no,
+		not_use,
+		del_flag,
+		create_by,
+		create_date,
+		update_by,
+		update_date,
+		remarks
+		) VALUES (
+		#{parentId},
+		#{orgId},
+		#{devType},
+		1,
+		#{name},
+		#{addr},
+		#{unitType},
+		#{firmwareVersion},
+		#{vendorInformation},
+		#{sn},
+		#{orderNo},
+		#{notUse},
+		#{delFlag},
+		#{createBy.id},
+		#{createDate},
+		#{updateBy.id},
+		#{updateDate},
+		#{remarks}
+		)
+	</insert>
+
+
+	<update id="update">
+		UPDATE t_device SET
+		parent_id = #{parentId},
+		org_id = #{orgId},
+		dev_type = #{devType},
+		type_id =
+		#{typeId},
+		name = #{name},
+		addr =#{addr},
+		unit_type = #{unitType},
+		firmware_version = #{firmwareVersion},
+		vendor_information = #{vendorInformation},
+		del_flag = #{delFlag},
+		coords_x = #{coordsX},
+		coords_y = #{coordsY},
+		sn =#{sn},
+		order_no = #{orderNo},
+		not_use = #{notUse},
+		update_by =
+		#{updateBy.id},
+		update_date = #{updateDate},
+		remarks =
+		#{remarks}
+		WHERE id =
+		#{id}
+	</update>
+	<!-- 更改启用禁用 -->
+	<update id="saveUse">
+		update t_device SET not_use = #{notUse}
+		WHERE id = #{id}
+	</update>
+
+	<!-- 物理删除 -->
+	<update id="delete">
+		DELETE FROM t_device
+		WHERE id = #{id}
+	</update>
+
+	<!--逻辑删除 -->
+	<!-- <update id="delete"> -->
+	<!-- UPDATE t_device SET -->
+	<!-- del_flag = 1 -->
+	<!-- WHERE id = #{id} -->
+	<!-- </update> -->
+
+	<!-- 物理删除 t_device_detail -->
+	<update id="deleteDetail">
+		DELETE FROM t_device_detail
+		WHERE id = #{id}
+	</update>
+
+	<!--逻辑删除 -->
+	<update id="deleteByLogic">
+		UPDATE t_device SET
+		del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+
+
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="TDevice" statementType="STATEMENT">
+		select * FROM t_device where
+		${propertyName} = '${value}'
+	</select>
+	<!-- 修改上传设备图片 -->
+	<update id="updatePic">
+		UPDATE t_device set picture_path = #{picturePath} where id = #{id}
+	</update>
+	<!-- 获取设备区域下集合 -->
+	<select id="devicePic" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id,name from t_device where org_id = #{orgId} and coords_x IS NULL and
+		coords_y IS NULL
+		and dev_type=#{coldId}
+	</select>
+	<!-- 保存设拖动的设备 -->
+	<update id="updateCoords">
+		UPDATE t_device set coords_x =#{coordX},coords_y =#{coordY} where id = #{id}
+	</update>
+
+	<select id="tDeviceList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		concat(a.id) id,
+		a.dev_type devType,
+		case when b.mac is null or b.mac ='' then CONCAT(b.outer_id,'/',b.imei) else substring_index(b.mac,'_', -1) end mac,
+		b.online,
+		concat(a.addr) addr,
+		a.del_flag allWarn,
+		1 meter,
+		a.firmware_version firmwareVersion,
+		c.name gateway,
+		d.bus_addr busAddr,
+		CONCAT('/static_modules/device/',tc.icon_skin) iconSkin,
+		(SELECT count(*) from t_channel where
+		dev_id =a.id and ch_type = 201 and type_id = 4) allCount,
+		(SELECT count(*) from t_channel where dev_id =a.id and ch_type = 201 and type_id = 4 and channel_type is not null) useCount
+		from t_device a
+		LEFT JOIN t_code tc on tc.id = a.dev_type and tc.type_id = a.type_id
+		left join t_device_detail b on a.id = b.id
+		left join t_device c on c.id = a.parent_id
+		left join t_device_detail d on d.id = a.id
+		where a.org_id = #{orgId} and a.dev_type in (162,168,169,170,171,172,174,183,185,186,225)
+	</select>
+
+	<select id="deviceChannelList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		c.id,
+		c.dev_id,
+		c.ch_type,
+		c.type_id,
+		c.name AS "chName",
+		c.channel_type AS "channelType",
+		CONCAT(IFNULL(c.addr,''),c.name) AS	"addr",
+		c.param0,
+		c.param1,
+		c.param2,
+		c.ch_no,
+		c.online,
+		e.name AS "codeName",
+<!-- 		FORMAT((real_value-param2)/param1,param0) real_value, -->
+<!-- 		warn,  -->
+		
+		IFNULL(e.monad,'') AS "monad"
+		FROM t_channel c
+		
+<!-- 	    left join t_real_data d on d.id = c.id  -->
+		
+		LEFT JOIN t_code e
+		ON e.id = c.ch_type AND e.type_id = c.type_id
+		WHERE c.dev_id = #{devId} and c.not_use = 0
+	</select>
+	
+	
+	<!-- 修改设备地址 -->
+	<update id="midifyDevice">
+		update t_device set addr=#{addr}
+		<if test="orgId != null and orgId !=''">
+			,org_id =#{orgId}
+		</if>
+		<where>
+			<if test="id != null and id !=''">
+				and id= #{id}
+			</if>
+			<if test="pId != null and pId !=''">
+				and id= (select id from (select parent_id id from t_device where id= #{pId}) b)
+			</if>
+		</where>
+
+	</update>
+	<!-- 修改通道 -->
+	<update id="midifyChannel">
+		update t_channel set logic_org_id = #{orgId} where dev_id =#{devId}
+	</update>
+
+	<delete id="deleteChannelbyDevid">
+		delete from t_channel where dev_id = #{devId}
+	</delete>
+
+	<select id="deviceByMac" resultType="com.jeeplus.common.persistence.MapEntity">
+	(select
+	concat(a.id) id,
+	tc.name codeName,
+	a.dev_type devType,
+	substring_index(mac,'_', -1) mac,
+	c.name,
+	a.org_id orgId,
+	d.name orgName
+	from
+	t_device a
+	inner join t_device_detail b on a.id = b.id
+	left join t_code c on c.id= a.dev_type and c.type_id = 1
+	LEFT JOIN t_org d on a.org_id = d.id
+	left join t_device de on de.id = a.parent_id
+	left join t_code tc on tc.id = de.dev_type and de.type_id = tc.type_id
+	where
+	(a.parent_id = (select id from t_device_detail
+	where mac = #{mac})) or imei = #{mac})
+
+	UNION ALL
+
+	(select
+	CONCAT(c.id) id,
+	d.name codeName,
+	d.dev_type devType,
+	ch_no mac,
+	tc.name,
+	o.id orgId,
+	o.name orgName
+	from 
+	t_device d inner join t_channel c on c.dev_id = d.id
+	left join t_code tc on tc.id = c.ch_type and tc.type_id = c.type_id
+	left join t_org o on o.id=d.org_id
+	where d.sn = #{mac}  order by c.param0,c.ch_no)		
+	</select>
+	
+<!-- and a.dev_type in (162,168,169,171,172,174,131,178,183,184,1004) -->
+	<select id="getSmokeType" resultType="com.jeeplus.common.persistence.MapEntity">	
+	    select dev_type channelType,name FROM pdf_code where `status` = 16
+	</select>
+	
+	<select id="getVideoType" resultType="com.jeeplus.common.persistence.MapEntity">	
+	    select dev_type channelType,name FROM pdf_code where `status` = 18 order by channelType desc
+	</select>
+	
+	<select id="getwireName" resultType="com.jeeplus.common.persistence.MapEntity">	
+	    select dev_type channelType,name FROM pdf_code where `status` = 19 
+	</select>
+	
+	<update id="updateVideoByChId">
+       update t_channel
+       set logic_org_id = #{orgId},
+       channel_type = #{channelType},name = #{name},addr = #{addr} ,param0 = #{param0},remarks = #{remarks}
+       where id= #{chId};
+       update t_device set org_id = #{orgId} where id = (select dev_id from t_channel where id  = #{chId});         
+	</update>
+	
+	<select id="getChSmokeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		a.id,
+		ch_type devType,
+		ch_no mac,
+		a.name,
+		logic_org_id orgId,
+		o.name orgName
+		FROM t_channel a 
+		LEFT JOIN t_org o on o.id = a.logic_org_id
+		where 
+		a.dev_id = #{devId} and a.ch_type != 21
+	</select>
+	
+	<!-- 查询是否有mac -->
+	<select id="selectMac" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id from t_device_detail where mac = #{mac}
+	</select>
+
+	<select id="macStateList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+        concat(b.id) pId,
+        c.bus_addr busAddr,
+        b.name as gatewayName,
+        concat(a.id) id,
+        a.name devName,
+        t.name codeName,
+        a.dev_type devType,
+        a.addr,c.online,
+        case when c.online != 0 then '--' end days,
+        max(warn) warn,
+        MAX(r.real_time) time
+        from
+        t_device a
+        INNER JOIN t_device b on b.id = a.parent_id
+        INNER JOIN t_device_detail c on a.id =c.id
+        inner  join t_channel tc on tc.dev_id = a.id 
+        inner  join t_real_data r on r.id = tc.id 
+        LEFT JOIN t_code t on t.id =
+        a.dev_type and t.type_id =1 
+		where
+		a.org_id = #{orgId}  GROUP BY a.id
+	</select>
+
+
+	<select id="getUserDetail" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		c.name,
+		d.address,
+		IFNULL(c.phone,'')  phone
+		from
+		t_org a
+		left join pdf_org d on d.t_org_id =	a.id
+        left join sys_user_bureau b on d.bureau_id = b.bureau_id
+		left join sys_user c on c.id = b.user_id
+		where a.id = #{orgId}
+	</select>
+
+	<select id="homepageCount" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		count(*) total,
+		SUM(CASE WHEN b.online = 0 THEN 1 ELSE 0 END) leve
+		from t_device a
+		INNER JOIN t_device_detail b on a.id = b.id
+		where a.org_id = #{orgId} and a.dev_type in (162,168,169,171,172,174)
+	</select>
+
+	<select id="leveDevice" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		a.id,
+		c.name,
+		a.name devName,
+		a.dev_type devType,
+		a.addr,
+		e.real_time
+		leveTime,
+		DATE_FORMAT(e.real_time,'%y/%m/%d %H:%i:%s') leaveTime
+		from t_device a inner join
+		t_device_detail b on a.id =
+		b.id inner join t_device c on c.id = a.parent_id
+		LEFT JOIN t_channel d on a.id = d.dev_id
+		left join t_real_data e on
+		e.id = d.id
+		where a.org_id= #{orgId} and b.`online` = 0
+		GROUP BY a.id
+	</select>
+
+	<!-- 环境监测 -->
+	<select id="detaiDevice" resultType="com.jeeplus.common.persistence.MapEntity">
+		(select
+		a.dev_type devType,
+		a.name devName,
+		b.ch_type chType,
+		b.name chName,
+		MAX(c.warn) warn,
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) realValue
+		from
+		t_device a
+		LEFT JOIN t_channel b on a.id = b.dev_id
+		LEFT JOIN t_real_data c on c.id = b.id
+		where
+		a.org_id =#{orgId} and a.dev_type = 169 and b.ch_type = 101)
+
+		UNION
+		(select
+		a.dev_type devType,
+		a.name devNmme,
+		b.ch_type chType,
+		b.name name,
+		MAX(c.warn) warn,
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) realValue
+		from
+		t_device a
+		LEFT JOIN t_channel b on a.id = b.dev_id
+		LEFT JOIN t_real_data c on c.id = b.id
+		where a.org_id = #{orgId} and a.dev_type =
+		169 and b.ch_type = 102)
+
+		UNION
+
+		(select
+		a.dev_type devType,
+		a.name devNmme,
+		b.ch_type chType,
+		b.name name,
+		MAX(c.warn) warn,
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) realValue
+		from
+		t_device a
+		LEFT JOIN t_channel b on a.id = b.dev_id
+		LEFT JOIN t_real_data c on c.id = b.id
+		where
+		a.org_id =#{orgId} and a.dev_type = 168)
+
+		UNION
+		(select
+		a.dev_type devType,
+		a.name
+		devNmme,
+		b.ch_type chType,
+		b.name name,
+		MAX(c.warn) warn,
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) realValue
+		from
+		t_device a
+		LEFT JOIN t_channel b on a.id = b.dev_id
+		LEFT JOIN t_real_data c on c.id = b.id
+		where
+		a.org_id =#{orgId} and a.dev_type = 162 and b.ch_type = 5)
+
+		UNION
+
+		(select
+		a.dev_type devType,
+		a.name devNmme,
+		b.ch_type chType,
+		b.name name,
+		MAX(c.warn) warn,
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) realValue
+		from
+		t_device a
+		LEFT JOIN t_channel b on a.id = b.dev_id
+		LEFT JOIN t_real_data c on c.id = b.id
+		where
+		a.org_id = #{orgId} and a.dev_type = 172)
+	</select>
+
+	<select id="videolist" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		param0 orderNo,
+		a.channel_type channelType,
+		concat(a.id) id,
+		a.ch_no,
+		CONCAT(IFNULL(a.addr,''),a.name) name,
+		td.sn,
+		CONCAT('rtmp://222.77.181.112/live_pdf_fz_jtl/ch',a.ch_no) url,
+		CONCAT('/static_modules/channel/',tc.icon_skin) iconSkin
+		FROM
+		t_channel a
+		left join t_code tc on tc.id = a.channel_type and tc.type_id = a.type_id
+		INNER JOIN t_device td ON a.dev_id = td.id
+		WHERE
+		a.logic_org_id = #{orgId}
+		AND a.ch_type = 1
+		AND a.type_id = 9 ORDER BY param0
+	</select>
+
+	<select id="deviceCount" resultType="int">
+		SELECT
+		COUNT(*)
+		from
+		(select a.id from t_device a where a.org_id = #{orgId} and a.dev_type in
+		(162,168,169,171,172,174)
+		union all
+		select a.id from t_channel a where a.logic_org_id = #{orgId} and a.channel_type in (2,3,202,220,225,240) and
+		a.type_id in
+		(4,9)) oo
+	</select>
+
+	<select id="GatewayList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		concat(a.id) id,
+		a.name,
+		b.mac,
+		b.online
+		from t_device a
+		left join t_device_detail b on a.id= b.id
+		where
+		dev_type = 150 and org_id = #{orgId}
+	</select>
+	<select id="getNVRList" resultType="com.jeeplus.common.persistence.MapEntity">
+	    	select
+			concat(a.id) id,
+			a.dev_type devType,
+			a.name,
+			a.sn sn,
+			a.firmware_version version,
+			b.online
+			from t_device a
+			left join t_device_detail b on a.id= b.id
+			where
+			dev_type = 109 and org_id =  #{orgId}
+	</select>
+
+
+
+	<!-- 删除网关 -->
+	<select id="updateOrgBydevId">
+		update t_device set org_id = 100000 where id = #{id} or parent_id = #{id};
+
+		DELETE from pdf_image_dev_ch where (dev_ch_id in (select id from t_device where parent_id = #{id}) and type_id = 1) and
+		(dev_ch_id in (
+		select tc.id from t_device a inner join t_channel tc on tc.dev_id = a.id
+		where a.parent_id = #{id} and
+		tc.ch_type =201 and tc.type_id = 4) and type_id != 1);
+
+		update t_channel set channel_type = null where dev_id in (select id from t_device where parent_id = #{id});
+	</select>
+
+	<select id="remoteChannelist" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		ifnull(b.addr,'') addr,
+		CONCAT(b.id) id,
+		b.name name,
+		b.ch_no chNo,
+		b.channel_type channelType,
+		b.type_id typeId,
+		FORMAT((c.real_value-param2)/param1,param0) realValue,
+			CONCAT('/static_modules/channel/',tc.icon_skin) iconSkin,
+		c.warn
+		from
+		pdf_code a
+		left join t_channel b on a.dev_type = b.channel_type and a.type_id = b.type_id
+		LEFT JOIN t_real_data c on c.id = b.id
+				left join t_code tc on tc.id  = b.channel_type and tc.type_id = b.type_id
+		where
+		a.status = 6 and a.type_id != 1 and b.logic_org_id = #{orgId}
+	</select>	
+
+	<select id="pdfCodeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT dev_type id,type_id typeId,name from pdf_code a where a.status = 6 and a.type_id != 1
+	</select>
+
+	<select id="getDevicebyTypeAndOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		td.id,
+		td.name,
+		td.addr
+		FROM t_device td
+		WHERE
+		td.org_id = #{pdfId} and td.dev_type = #{devType}
+	</select>
+
+	<select id="getTempHumChannelByDevId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		b.id,
+		b.name,
+		b.ch_type
+		FROM
+		t_device a
+		LEFT JOIN t_channel b ON a.id = b.dev_id
+		WHERE
+		a.id = #{devId} AND b.ch_type in (101,102)
+	</select>
+
+	<select id="getLastDataBeforeToday" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		*
+		FROM
+		t_history_data_final thdf
+		where
+		thdf.ch_id = #{chId}
+		order by
+		thdf.history_time desc limit 1
+	</select>
+
+	<select id="getTodayData" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT *
+		FROM
+		t_history_data_final thdf
+		WHERE
+		DATE_FORMAT(thdf.history_time, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d')
+		AND ch_id = #{chId} ORDER BY thdf.history_time desc
+	</select>
+
+	<select id="getRelayList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		concat(m.id) chId,
+		m.ch_no chNo,
+        concat('继电器',(@i:=@i+1)) name
+		from
+		(SELECT * from t_channel a where a.dev_id =
+		#{devId} and ch_type = 201 and type_id = 4) m,(select @i:=0) as it
+	</select>
+
+	<select id="getLightList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		dev_type channelType,
+		name
+		from
+		pdf_code
+		where
+		status = 6 and dev_type in (202,225,240,220)
+	</select>
+
+	<select id="getElectricList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(tc.id) id,
+		tc.ch_no chNo,
+		IFNULL(channel_type,'')	channelType,
+		concat('继电器',(@i:=@i+1)) codeName,
+		case when channel_type is null then '' else tc.addr end addr,
+		IFNULL(c.name,'') name
+		from
+		t_channel tc
+		left join t_code c on c.id = tc.channel_type and c.type_id = tc.type_id,(select @i:=0) as it
+		where
+		tc.dev_id = #{devId} and tc.ch_type=201 
+	</select>
+
+	<update id="updateChannelCode">
+		update
+		t_channel set
+		name = #{name},addr = #{addr},channel_type = #{channelType}
+		where id =#{chId}
+	</update>
+
+	<select id="getOrgName" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		c.name orgName,
+		a.addr,
+		b.name devTypeName
+		from
+		t_device a
+		LEFT JOIN t_code b on a.dev_type = b.id and a.type_id = b.type_id
+		LEFT JOIN t_org c on c.id = a.org_id where a.id = #{devId}
+	</select>
+
+	<select id="getDevTypeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		co.id devType,
+		co.type_id typeId,
+		co.name ,
+		IFNULL(tr.warn,0) warn,
+		tc.`online`,
+		CONCAT('static_modules/channel/',co.sideway_icon_skin) icon
+		from
+		t_channel tc
+		left join t_code co on co.id = tc.channel_type and tc.type_id = co.type_id
+		left join t_real_data tr on tr.id = tc.id
+		where
+		channel_type in (220,2,3) and tc.type_id in(9,4) and logic_org_id = #{orgId}
+
+		UNION all
+
+		select
+		dev_type devType,
+		td.type_id typeId,
+		td.name,
+		MAX(tr.warn) warn,
+		tdd.online,
+		CONCAT('static_modules/device/',co.sideway_icon_skin) icon
+		from
+		t_device td
+		LEFT JOIN t_device_detail tdd on tdd.id =td.id
+		left join t_code co on co.id = td.dev_type and td.type_id = co.type_id
+		left join t_channel tc on tc.dev_id = td.id
+		left join
+		t_real_data tr on tr.id = tc.id
+		where
+		td.org_id = #{orgId} and dev_type in (162,168,169,172) GROUP BY td.id
+	</select>
+
+	<select id="deleteImageDev">
+		delete from pdf_image_dev_ch where dev_ch_id = #{devId} and type_id = 1
+	</select>
+
+	<update id="updateChannelByDevId">
+		update t_channel set channel_type = null,addr = null,name = '开关' where dev_id = #{devId} and ch_type = 201;
+	</update>
+
+	<update id="updateChannelBychId">
+		update t_channel set channel_type = #{channelType},addr = #{addr}, name = #{name} where id = #{chId}
+	</update>
+
+
+	<select id="getOrgListById" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(id)id, CONCAT(parent_id) pIds,name,type from t_org where parent_id = #{orgId}
+	</select>
+
+
+	<update id="deleteChanByChId">
+	    update t_channel  set del_flag = 1 where id = #{chId}
+	</update>
+		
+	<select id="getSmokeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		concat(tc.id) chId,
+		tc.name chName,
+		tc.ch_no chNo,
+		IFNULL(tc.addr,'') addr,
+		o.name orgFireName,
+		tr.warn,
+		tc.online,
+		tc.ch_type chType,
+		tc.type_id typeId,		
+		CONCAT('/static_modules/channel/',co.icon_skin) iconSkin
+		FROM t_device t 
+		inner join t_channel tc on tc.dev_id = t.id
+		left join t_code co on co.id = tc.ch_type and co.type_id = tc.type_id
+		left join t_real_data tr on tr.id = tc.id
+		left join t_org o on o.id = tc.logic_org_id			
+		<where>
+    	t.dev_type in (131,178) and tc.ch_type in (4,12) and tc.type_id = 2 and tc.ch_type !=21 and tc.del_flag  = 0 
+	    <if test="orgId != null and orgId !=''">
+		and (o.id = #{orgId} or o.parent_id = #{orgId})
+	    </if>	
+	</where>
+	</select>
+
+     <select  id="getDevicTypeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		COUNT(*) count,
+		dev_type devType,
+		name 
+		from t_device 
+		where 
+		org_id = #{orgId} and dev_type in 
+		(select dev_type from pdf_code where type_id = 1) 
+		GROUP BY dev_type
+	     
+		UNION ALL
+	
+		select 
+		COUNT(*) count,
+		tc.id devType,
+		tc.name 
+		from t_channel c 
+		left join t_code tc on c.channel_type = tc.id and tc.type_id = c.type_id
+		where 
+		logic_org_id = #{orgId} and channel_type in (select dev_type from pdf_code where type_id != 1) 
+		GROUP BY channel_type
+	</select>
+
+
+	<select id="getAlarmRateList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		COUNT(*) count,
+		d.dev_type devType,
+		d.name 
+		from t_alarm_log a 
+		inner join t_channel c on c.id= a.ch_id 
+		inner join t_device d on d.id= c.dev_id
+		where 
+		d.org_id = #{orgId} GROUP BY d.dev_type
+	</select>
+
+<!--     nvr摄像设备 -->
+	<select id="NVRList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		concat(c.id) chId, 
+		c.name,
+		IFNULL(d.sn,'') sn,
+		d.id devId,
+		c.channel_type channelType, 
+		IFNULL(c.addr,'') addr,
+		c.ch_no chNo,
+		c.online,
+		1 wired
+		from t_channel c 
+		INNER JOIN t_device d on d.id = c.dev_id
+		inner join t_device_detail dd on dd.id = d.id
+		where 
+		logic_org_id = #{orgId} and c.ch_type = 1 and c.type_id = 9 ORDER BY param0,ch_no
+	</select>
+	
+		
+	<update id="deleteNvrByDevId">	
+	  
+    UPDATE t_device set org_id = 100000 where id = #{devId};
+
+    UPDATE t_channel set logic_org_id =100000 where dev_id =  #{devId};
+	</update>
+	
+		
+	<delete id="deleteNvr">	
+	  delete from t_channel where id = #{chId}
+	</delete>
+	
+	<update id="modifyNvr">	
+	  update t_channel set channel_type = #{channelType} where id = #{chId}
+	</update>	
+	
+	<update id="updateVideo">
+		update t_channel
+		set 		
+		channel_type = #{channelType},name = #{name},addr = #{addr} ,remarks = #{remarks},logic_org_id =#{orgId}
+		where id= #{chId};				
+	</update>	
+	
+	<select id="selectOrgByChId" resultType="java.lang.String">
+	select d.org_id from t_channel c inner join t_device d on d.id = c.dev_id where c.id = #{chId}
+     </select>
+       
+     
+	<update id="updateOrderNo">
+		update t_channel
+		set 		
+		param0 = #{param0}
+		where id= #{chId};			
+	</update>	
+	
+	<update id="deleteVideoBychId">
+      update t_channel set logic_org_id = 100000, addr='', name ='视频',channel_type = null, param0 =0, del_flag = 1,remarks='' where id = #{chId}    
+    </update>
+    
+    
+	<select id="selectNVRList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		concat(c.id) chId,
+		c.channel_type channelType,
+		c.name,
+		d.sn,
+		c.ch_no chNo,
+		concat(c.addr,'') addr,
+		c.online,
+		param0,
+		concat(c.remarks,'') remarks
+		from t_device d 
+		left join t_device_detail dd on dd.id = d.id
+		left join t_channel c on c.dev_id = d.id where d.org_id  = #{orgId} and d.dev_type = 109 and c.del_flag = 0 ORDER BY param0,ch_no
+    </select>
+    
+    
+	 <select id="selectLockList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		c.`online`, 
+		IFNULL(r.warn,0) warn,
+		concat(c.id) chId,
+		c.name chName,
+		c.type_id typeId,	
+		IFNULL(c.addr,'') chAddr,
+		IFNULL(FORMAT((real_value-param2)/param1,param0),0) realValue
+		from
+		t_channel c
+		left join t_code tc on tc.id = c.ch_type and tc.type_id = c.type_id
+		left join t_real_data r on r.id = c.id
+		where c.dev_id = #{devId} order by c.type_id desc,c.ch_type
+     </select>
+     
+     
+     <select id="getDevIds" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		concat(d.id) devId,
+		substring_index(dd.mac,'_', -1) mac,
+		d.dev_type devType,
+		dd.bus_addr busAddr,
+		IFNULL(d.addr,'') addr,
+		d.name
+		from t_device d 
+		left join t_device_detail dd on dd.id =d.id
+		where 
+		d.org_id = #{orgId} and d.dev_type = 216
+     </select> 
+     
+     
+     <select id="getLockList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select
+        concat(c.dev_id) devId,
+		c.`online`, 
+		IFNULL(r.warn,0) warn,
+		concat(c.id) chId,
+		c.name chName,
+		c.type_id typeId,	
+		IFNULL(c.addr,'') chAddr,
+		IFNULL(FORMAT((real_value-param2)/param1,param0),0) realValue
+		from
+		t_channel c 
+        inner join t_device d on d.id= c.dev_id
+		left join t_code tc on tc.id = c.ch_type and tc.type_id = c.type_id
+		left join t_real_data r on r.id = c.id
+		where d.org_id = #{orgId}  order by c.type_id desc,c.ch_type
+     </select>
+     
+     
+     <select id="getLoopByOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+        select
+        CONCAT(a.id) id,
+        CONCAT(a.parent_id) pId,
+        IFNULL(s.model,'') image,
+        a.name,
+        a.type,
+        b.name
+        parentName,
+        a.code,
+        a.order_no orderNo,
+        s.id loopType,
+        case when c.logic_org_id > 0 then 1 else 0 end status,
+        IFNULL(c.logic_org_id,'') loopOrgId
+        from t_org a
+        left join t_org b on a.parent_id = b.id
+        left join star_net_code s on
+        s.id = a.loop_type
+
+        left join(
+        select *from
+        t_channel GROUP BY logic_org_id ) c on c.logic_org_id = a.id
+        where
+        (a.parent_ids like
+        CONCAT('%',#{orgId},'%') or a.id = #{orgId}) ORDER BY a.order_no,a.create_date desc
+    </select>
+    
+    <update id="updateOrgIdByChId">
+        update t_channel set logic_org_id = #{loopId} where id in (${chIds})
+    </update>
+     
+     
+    	
+</mapper>

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.sys.dao.BureauDao">
+
+
+	<select id="getBureauIds" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		CONCAT(eb.parent_ids,eb.id) pIds,
+		concat(eb.id) id,
+		concat(eb.parent_id) pId,
+		eb.name,
+		eb.type,
+		eb.code,
+		eb.order_no	orderNo,
+		case when (select count(1) from pdf_electricity_bureau where code like concat(eb.code,'%')) >=1 and
+		org.bureau_id is null then 0 else 1 end status
+
+		from 
+		pdf_electricity_bureau eb
+		left join (select bureau_id from pdf_org GROUP BY bureau_id) org on org.bureau_id = eb.id
+		<if test="userId != null and userId !=1">
+			inner join sys_user_bureau ub on eb.id = ub.bureau_id
+		</if>
+		<where>
+			<if test="userId != null and userId !=1">
+				ub.user_id = #{userId}
+			</if>
+		</where>
+	</select>
+	
+	<select id="getBureauList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		CONCAT(eb.parent_ids) parentIds,
+		concat(eb.id) id,
+		concat(eb.parent_id) parentId,
+		eb.name,
+		eb.type,
+		eb.code,
+		eb.order_no	orderNo,
+		case when (select count(1) from pdf_electricity_bureau where code like concat(eb.code,'%')) =1 and
+		org.bureau_id is null then 0 else 1 end status	    
+		from pdf_electricity_bureau eb
+		left join (select bureau_id from pdf_org GROUP BY bureau_id) org on org.bureau_id = eb.id
+		where eb.id= #{bureauId} or eb.parent_ids like CONCAT('%',#{bureauId},'%')	
+	</select>
+	
+
+	<delete id="deleteBureauById">
+		delete from pdf_electricity_bureau where id = #{bureauId}
+	</delete>
+
+	<update id="updateBureauById">
+		update pdf_electricity_bureau set
+		<if test="parentId !=null and parentId !=''">
+			parent_id = #{parentId},
+		</if>
+		<if test="parentIds !=null and parentIds !=''">
+			parent_ids = REPLACE(#{parentIds},#{oldParentId},#{parentId}),
+		</if>
+		name = #{name}
+		where id = #{bureauId}
+	</update>
+	
+    <insert id="insertBureau" useGeneratedKeys="true" keyProperty="id" parameterType="com.jeeplus.common.persistence.MapEntity">
+		insert into pdf_electricity_bureau(name,parent_id,parent_ids,code) values
+		(#{name},
+		#{parentId},
+		(select CONCAT(b.parent_ids,#{parentId},',') pIds from pdf_electricity_bureau b where b.id = #{parentId}),
+		#{code});
+	</insert>
+	
+	<insert id="inserUserBureau">	
+		insert into sys_user_bureau(user_id,bureau_id) VALUES(#{userId},#{bureauId})
+	</insert>
+		
+	<update id="updateParentIds">
+		update pdf_electricity_bureau set parent_ids = REPLACE(#{parentIds},#{oldParentId},#{parentId}) where id= #{id}
+	</update>
+
+	<select id="getOrgListByPId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		concat(eb.id) id,
+		concat(eb.parent_id) pId,
+		eb.name,
+		eb.type,
+		eb.code,
+		eb.order_no orderNo
+		from pdf_electricity_bureau eb
+		where eb.id in (${pIds})
+	</select>
+
+	<update id="updateOrderNo">	
+		update pdf_electricity_bureau set order_no = #{orderNo} where id= #{bureauId}
+	</update>
+
+<!--     账号管理添加下一步调用 -->
+	<select id="getBureauListByUserId"  resultType="com.jeeplus.common.persistence.MapEntity">	  
+		select CONCAT(oo.id) id,oo.name,CONCAT(oo.parent_id) parentId,oo.type,		
+		<if test="userId != null and userId !=1">
+			case when ur.bureau_id is null then 0 else 1 end status
+		</if>
+		<if test="userId != null and userId ==1">
+			1 status 
+		</if>
+		from
+		<if test="userId != null and userId ==1">
+			pdf_electricity_bureau oo
+		</if>
+		<if test="userId != null and userId !=1">	
+		(select * from pdf_electricity_bureau a
+		where FIND_IN_SET (a.id,(
+		select GROUP_CONCAT(b.parent_ids,b.id) from sys_user_bureau uo inner join pdf_electricity_bureau b on uo.bureau_id = b.id
+		where uo.user_id = #{userId}))) oo	
+		left join
+		(select * from
+		sys_user_bureau where user_id =#{userId}) ur on ur.bureau_id = oo.id
+		</if>
+	</select>
+	
+   <!-- 	查询添加中调用 -->
+	<select id="bureausByUserId"  resultType="com.jeeplus.common.persistence.MapEntity">	
+		select CONCAT(oo.id) id,oo.name,CONCAT(oo.parent_id) parentId,oo.type,
+		case when ur.bureau_id is null then 0 else 1 end status
+		from
+		(select * from pdf_electricity_bureau a
+		where FIND_IN_SET (a.id,(
+		select GROUP_CONCAT(b.parent_ids,b.id) from sys_user_bureau uo inner join pdf_electricity_bureau b on uo.bureau_id = b.id
+		where uo.user_id = #{userId}))) oo
+		left join
+		(select * from sys_user_bureau where user_id =#{userId}) ur
+		on ur.bureau_id = oo.id	
+	</select>
+	
+	
+	
+</mapper>

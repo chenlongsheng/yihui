@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TAppDao">
+
+	<select id="findList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		id,
+		system_name systemName,
+		model,
+		model_type modelType,		
+		inner_version innerVersion,
+		out_version outVersion,
+		no_update noUpdate,
+		url,
+		no_publish noPublish,
+		remarks,
+		DATE_FORMAT(create_date,'%y/%m/%d %H:%i:%s') createDate
+		from
+		t_app		
+		<where>
+		<if test="systemName != null and systemName !=''">		
+			and	system_name = #{systemName}
+		</if>
+		<if test="innerVersion != null and innerVersion !=''">		
+			and	inner_version = #{innerVersion}
+		</if>
+		<if test="outVersion != null and outVersion !=''">		
+			and	out_version = #{outVersion}
+		</if>
+		<if test="noUpdate != null and noUpdate !=''">		
+			and	no_update = #{noUpdate}
+		</if>
+		<if test="model != null and model !=''">		
+			and	model = #{model}
+		</if>
+		<if test="modelType != null and modelType !=''">		
+				and model_type = #{modelType}
+		</if>
+		<if test="noPublish != null and noPublish !=''">
+		      and   no_publish = #{noPublish}
+	    </if>
+		<if test="createDate != null and createDate != ''">
+			and create_date &gt;= DATE_FORMAT(#{createDate},'%Y-%m-%d %H:%i')
+		</if>
+		<if test="endDate != null and endDate != ''">
+			and create_date &lt;= DATE_FORMAT(#{endDate},'%Y-%m-%d %H:%i')
+		</if>
+		</where>
+	</select>
+
+	<insert id="insertApp">
+		INSERT into 
+		t_app(id,system_name,model,model_type,inner_version,out_version,no_update,url,no_publish,remarks,create_date) 
+		values
+		(null,#{systemName},#{model},#{modelType},#{innerVersion},#{outVersion},#{noUpdate},#{url},#{noPublish},#{remarks},NOW());
+	</insert>
+
+	<update id="updateApp">
+		update 
+		t_app 
+		set 
+		system_name=#{systemName},
+		model=#{model},
+		model_type=#{modelType},
+		inner_version=#{innerVersion},
+		out_version=#{outVersion},
+		no_update=#{noUpdate},
+		url=#{url},
+		no_publish=#{noPublish},
+		remarks=#{remarks}
+		where 
+		id = #{id}
+	</update>
+
+	<delete id="deleteApp">
+		delete from t_app	where id = #{id}
+	</delete>
+
+	<select id="getMessageList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		 id,
+		 name,
+		 model_type modelType
+		 from 
+		 pdf_code 
+		 where `status` = #{status}
+	</select>
+
+
+</mapper>

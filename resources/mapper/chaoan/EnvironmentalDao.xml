@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.chaoan.dao.EnvironmentalDao">
+
+	<select id="tDeviceTypes" resultType="com.jeeplus.common.persistence.MapEntity">
+		select name, addr,dev_type devType from t_device d 
+		where 
+		<if test="orgId !=null and orgId != ''">
+		org_id = #{orgId} and
+		</if>
+		 dev_type in (169,217,231,228,229)
+		GROUP BY dev_type
+	</select>
+
+	<select id="tDeviceListByType" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(id) id,name,addr,dev_type devType from t_device d where
+		dev_type = #{devType} 
+		<if test="orgId !=null and orgId != ''">
+		and org_id = #{orgId}
+		</if>
+	</select>
+
+	<select id="wenshiList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') time,c.id,c.name,d.addr,
+		CONCAT(MAX(case when ch_type = 101 then history_value
+		end)) 'wendu',
+		CONCAT(MAX(case when ch_type = 102 then
+		history_value
+		end)) 'shidu'
+		from t_channel c inner join t_history_data_final h on h.ch_id = c.id 
+		left join t_device d on
+		d.id = c.dev_id
+		where dev_id = #{devId} and ch_type in
+		(101,102)
+		and history_time &gt;#{beginDate} and history_time &lt;=
+		#{endDate}
+		GROUP BY
+		DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') ORDER BY history_time
+	</select>
+
+	<!-- 机密空调 -->
+	<select id="getConditioner" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') time,d.addr,
+		CONCAT(MAX(case when ch_no = 4 then history_value
+		end)) 'wendu',
+		CONCAT(MAX(case when ch_no = 5 then history_value
+		end))
+		'shidu'
+		from t_channel c inner join t_history_data_final h on h.ch_id = c.id
+		left join t_device d on d.id = c.dev_id
+		where dev_id = #{devId} and ch_no in (4,5)
+		and history_time &gt;#{beginDate} and history_time &lt;= #{endDate}
+		GROUP BY
+		DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') ORDER BY history_time
+	</select>
+
+
+
+	<select id="ph2and10" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') time,c.id,
+		CONCAT(MAX(case
+		when
+		ch_type = 291 then history_value
+		end)) 'PM25',
+		CONCAT(MAX(case when ch_type = 292 then history_value
+		end))
+		'PM10',d.addr
+
+		from
+		t_channel c inner join t_history_data_final h on h.ch_id = c.id
+		left join t_device d on d.id =
+		c.dev_id
+		where dev_id = #{devId} and ch_type in (291,292)
+		and history_time &gt;=#{beginDate} and history_time &lt;=
+		#{endDate}
+		GROUP BY
+		DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') ORDER BY history_time
+	</select>
+
+
+	<!-- 气体浓度 -->
+	<select id="gasConcentration" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') time,c.id,d.addr,
+		CONCAT(MAX(case when ch_type = 110 then history_value
+		end)) 'lel值'
+
+		from t_channel c inner join t_history_data_final h on
+		h.ch_id = c.id
+		left join t_device d on d.id =c.dev_id
+		where dev_id = #{devId} and ch_type in (110)
+		and history_time
+		&gt;=#{beginDate} and history_time &lt;= #{endDate}
+		GROUP BY DATE_FORMAT(history_time,'%Y-%m-%d %H:%i') ORDER BY
+		history_time
+	</select>
+
+	<select id="IncomingCabinet" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%y-%m-%d %H:%i') time,d.name,d.addr,
+
+
+		<foreach collection="chTypeList" item="emp" separator=",">
+			Format(IFNULL(max(case when c.ch_type= #{emp} then
+			history_value end),'0'),2) '${emp}'
+		</foreach>
+
+		from t_history_data_final h
+		inner join t_channel c on c.id =h.ch_id
+		left join t_device d on d.id= c.dev_id
+		where dev_id =
+		#{devId}
+		<if test="name !=null and name != ''">
+			and c.name like CONCAT('%',#{name},'%')
+		</if>
+		and history_time &gt;=#{beginDate} and history_time &lt;= #{endDate}
+		and ch_type in (${chTypes}) GROUP by
+		DATE_FORMAT(history_time,'%y-%m-%d %H:%i') ORDER BY history_time
+	</select>
+
+	<select id="outgoingCabinet" resultType="com.jeeplus.common.persistence.MapEntity">
+		select DATE_FORMAT(history_time,'%y-%m-%d %H:%i') time,d.name,d.addr,
+		<foreach collection="chTypeList" item="emp" separator=",">
+			Format(IFNULL(max(case when c.ch_type= #{emp} then
+			history_value end),'0'),2) '${emp}'
+		</foreach>
+		from t_history_data_final h
+		inner join t_channel c on c.id =h.ch_id
+		left join t_device d on d.id= c.dev_id
+		where dev_id =
+		#{devId} and ch_no &lt;30 and history_time &gt;#{beginDate} and history_time &lt;= #{endDate}
+		and ch_type in
+		(${chTypes}) GROUP by DATE_FORMAT(history_time,'%y-%m-%d %H:%i') ORDER BY history_time
+	</select>
+
+	<select id="powerCodes" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id, name ,value,model from star_net_code where status = #{status}
+	</select>
+
+	<select id="changeCymbols" resultType="com.jeeplus.common.persistence.MapEntity">
+		select name ,ch_type chType from star_net_code where status = 33 and
+		ch_type in (${chTypes});
+	</select>
+
+
+	<insert id="insertPdfEntranceLog">
+		insert into
+		pdf_entrance_log(id,user_name,unlock_type,picture_url,device_id,result,employee_no,event_time,channel_no)
+		values(null,#{user_name},#{unlock_type},
+		#{picture_url},(select ifnull(id,0) from t_device where sn =
+		#{device_sn}),#{result},#{employee_no},#{event_time},#{channel_no})
+	</insert>
+
+
+	<select id="getPdfEntranceLogs" resultType="com.jeeplus.common.persistence.MapEntity">
+
+		SELECT e.id,e.user_name,case when employee_no = 'null' then '' else employee_no end employee_no,event_time,
+		c.name
+		attendance from pdf_entrance_log e
+		inner join t_channel c on c.ch_no = e.channel_no and e.device_id = c.dev_id
+		<where>
+			<if test="userName != null and userName != ''">
+				user_name like CONCAT('%',#{userName},'%')
+			</if>
+			<if test="beginTime != null and beginTime != ''">
+				and event_time &gt;= #{beginTime}
+			</if>
+			<if test="endTime != null and endTime != ''">
+				and event_time &lt;= #{endTime}
+			</if>
+			<if test="employeeNo != null and employeeNo != ''">
+				and employee_no like CONCAT('%',#{employeeNo},'%')
+			</if>
+		</where>
+	</select>
+
+
+
+	   <select id="getMessageLogs" resultType="com.jeeplus.common.persistence.MapEntity">
+        select
+        case when d.name is null then dd.name else d.name end
+        devName,
+        DATE_FORMAT(pm.time,'%Y-%m-%d %H:%i:%m') time
+        ,
+        concat(pm.status) status,
+        IFNULL(pm.dev_type,'') dev_type,
+        IFNULL(pm.addr,'') addr,
+        IFNULL(pm.alarm_value,'') alarm_value,IFNULL(level,'') level ,
+        content content,IFNULL(phones,'') phones
+        from pdf_message_log pm
+        left join t_channel c on c.id = pm.log_ch_id
+        left join t_device dd on dd.id = pm.log_ch_id
+        left join t_device d on d.id = c.dev_id
+        <where>
+            <if test="devType != null and devType != ''">
+                and d.dev_type = #{devType}
+            </if>
+            <if test="beginTime != null and beginTime != ''">
+                and pm.time &gt;= #{beginTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                and pm.time &lt;= #{endTime}
+            </if>
+            <if test="status != null and status != ''">
+                and pm.status = #{status}
+            </if>
+            <if test="addr != null and addr != ''">
+                and pm.addr like CONCAT('%',#{addr},'%')
+            </if>
+            <if test="level != null and level != ''">
+                and pm.level = #{level}
+            </if>
+            <if test="phone != null and phone != ''">
+                and phones like CONCAT('%',#{phone},'%')
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                and pm.status in (${alarmType})
+            </if>
+        </where>
+        order by pm.time desc
+    </select>
+</mapper>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.machine.dao.TDeviceMachineDao">
+
+
+	<select id="tDeviceMachineList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		IFNULL(pdf.model_type,'') chNos,
+		IFNULL(pdf.value,'') stateName,
+		pdf.ch_type state,
+		CONCAT(a.id) id,
+		tc.name
+		devName,
+		a.dev_type devType,
+		case when
+		b.mac is
+		null or b.mac ='' then
+		CONCAT(b.outer_id,'/',b.imei) else b.mac end mac,
+		b.online online,
+		CONCAT(a.addr) addr,
+		a.del_flag allWarn,
+		1 meter,
+		a.firmware_version firmwareVersion,
+		c.name gateway,
+		d.bus_addr busAddr,
+		CONCAT('/static_modules/device/',tc.icon_skin) iconSkin,
+		
+		1 allCount,
+		1 useCount
+		from 
+		t_device a left join
+		(select * from pdf_code where STATUS = 25) pdf on
+		pdf.dev_type = a.dev_type
+		LEFT JOIN t_code tc
+		on tc.id = a.dev_type and
+		tc.type_id = a.type_id
+		left join t_device_detail b
+		on a.id = b.id
+		left join t_device c on c.id = a.parent_id
+		left join
+		t_device_detail d on d.id = a.id
+		left join t_org o on
+		o.id = a.org_id
+		<where>
+			<if test="orgId !=null and orgId != ''">
+				(a.org_id = #{orgId} or o.parent_ids like CONCAT('%',#{orgId},'%'))
+				and a.dev_type not in (150,183,109,2,141,222,252)
+			</if>
+			<if test="devId !=null and devId != ''">
+				and a.id = #{devId}
+			</if>
+			order by  SUBSTRING_INDEX(b.mac, '_', 1) desc, SUBSTRING_INDEX(b.mac, '_', -1) +0 
+		</where>
+	</select>
+
+	<select id="tChannelMachineList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT IFNULL(pdf.value,'') stateName,
+		IFNULL(pdf.ch_type,0) type,
+		CONCAT(c.id) chId,
+		CONCAT(c.dev_id) devId,
+		c.ch_type,
+		c.type_id,
+		c.name AS "chName",
+		c.channel_type AS
+		"channelType",
+		CONCAT(IFNULL(c.addr,''),c.name) AS "addr",
+		c.param0,
+		c.param1,
+		c.param2,
+		c.ch_no,
+		c.online online,
+		e.name AS "codeName",
+		IFNULL(FORMAT((real_value-param2)/param1,param0),'0')
+		realValue,
+		CONCAT(c.logic_org_id) loopOrgId,
+		IFNULL(warn,'0') warn ,
+		IFNULL(r.real_time,'') realTime,
+		IFNULL(e.monad,'') AS "monad"
+		FROM t_channel c
+		left join t_real_data r on r.id =
+		c.id
+		INNER join t_device d on d.id = c.dev_id
+		LEFT JOIN t_code e ON e.id = c.ch_type AND e.type_id = c.type_id
+		left join
+		(select * from pdf_code where STATUS = 26) pdf on pdf.dev_type = d.dev_type and c.ch_no = pdf.model_type
+		left join
+		t_org o on o.id = d.org_id
+		<where>
+	
+			<if test="orgId !=null and orgId != ''">
+				 (d.org_id = #{orgId} or o.parent_ids like CONCAT('%',#{orgId} ,'%'))
+				and (c.ch_type not in (24,25))
+			</if>
+			<if test="devId !=null and devId != ''">
+				and d.id = #{devId} and (c.ch_type not in (24,25))
+			</if>
+		</where>
+	</select>
+
+	<select id="allVideoList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		param0 orderNo,
+		IFNULL(m.id,'') chId,
+		a.channel_type channelType,
+		CONCAT(a.id) id,
+		IFNULL(td.unit_type,'') minutes,
+		CONCAT(a.logic_org_id) orgId,
+		CONCAT(IFNULL(a.addr,''),a.name) name,
+		a.del_flag type,
+		CONCAT(a.outer_id) src,
+		b.name orgName,
+		CONCAT('rtmp://192.168.128.31/live/ch',a.ch_no) local_src,
+		CONCAT('/static_modules/channel/',tc.icon_skin) iconSkin,
+		td.sn,
+		a.ch_no chNo,
+		a.play_url0,
+		a.play_url1,
+		a.play_url2
+		from
+		t_channel a
+		LEFT JOIN t_code tc on tc.id = a.channel_type and tc.type_id = a.type_id
+		inner join (select * from t_org
+		where type = 5) b
+		on a.logic_org_id = b.id
+		inner join t_device td
+		on a.dev_id = td.id
+		left join
+		(select CONCAT(o.ch_id) id
+		from pdf_user_video o
+		where o.user_id = #{userId}) m on m.id = a.id
+		where
+		a.ch_type =1 and
+		a.type_id = 9 and a.del_flag= 0
+		ORDER BY param0,a.ch_no
+	</select>
+
+	<update id="deleteUserVideo">
+		delete from pdf_user_video where user_id = #{userId};
+	</update>
+
+	<insert id="insertPdfUserId">
+		insert into pdf_user_video
+		values(null,#{chId},#{userId});
+	</insert>
+
+	<select id="getHistoryList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT DATE_FORMAT(history_time,'%H') time,
+		h.ch_id chId,
+		ROUND(avg(history_value),3)
+		historyValue,
+		c.ch_no chNo,
+		d.addr,
+		c.name
+		from t_channel c
+		inner join t_device d on d.id= c.dev_id
+		inner join
+		t_history_data_final h on h.ch_id = c.id
+		where
+		d.dev_type = #{devType} and ch_type = #{chType} AND
+		<if test="orgId !=null and orgId != ''">
+			d.org_id = #{orgId} and
+		</if>
+
+		history_time &gt;= #{time} and history_time &lt;=concat(#{time},' 23:59:59')
+		GROUP BY ch_id,DATE_FORMAT(history_time,'%Y-%m-%d %H') order by ch_id
+	</select>
+
+
+	<select id="getCodeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		c.name,
+		d.dev_type devType,
+		ch_type chType,
+		c.type_id typeId
+		from
+		t_device d
+		inner join pdf_code c on c.dev_type = d.dev_type
+		where c.status = 27 and c.ch_type != 0 
+		GROUP BY c.id
+	</select>
+
+
+	<select id="getDeviceCodeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		id,
+		name,
+		en_name,
+		chNo,
+		chType,
+		notUse,
+		order_no 
+		from
+		pdf_device_code where dev_type = #{devType} order by order_no
+	</select>
+
+	<update id="updateDeviceCodeByDevType">
+		UPDATE pdf_device_code set notUse =0,order_no = 100 where dev_type = #{devType}
+	</update>
+
+	<update id="updateDeviceCodeById">
+		UPDATE pdf_device_code set notUse =#{notUse},order_no = #{orderNo} where id = #{id}
+	</update>
+
+	<select id="getDeviceCodeByorgId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		pd.name,
+		pd.en_name,
+		pd.dev_type,pd.chNo,pd.chType,pd.order_no orderNo,pd.notUse
+		from pdf_device_code pd inner join t_device d on d.dev_type = pd.dev_type
+		where pd.notUse = 1 and d.org_id = #{orgId} GROUP BY pd.id ORDER BY pd.dev_type,pd.order_no
+	</select>
+
+
+</mapper>

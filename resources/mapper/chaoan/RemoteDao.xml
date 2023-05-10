@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.chaoan.dao.RemoteDao">
+
+	<select id="getConfidentialAirConditioner" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		r.real_value realValue,c.name,d.addr,concat(c.id) id
+		,c.ch_type chType
+		from t_device d
+		inner join t_channel c on c.dev_id = d.id
+		left join t_real_data r on r.id = c.id
+		where
+		dev_type = 231 and org_id = #{orgId} and ch_type in (349,350)
+	</select>
+
+
+
+	<update id="insertAirConSetting">
+		insert into air_conditioning_setting(dev_id,temper_upper_limit,temper_lower_limit,
+		humidity_upper_limit,humidity_lower_limit,temper_down,temper_up,humidity_down,humidity_up,cycle)
+		values(#{devId},#{temperUpperLimit},#{temperLowerLimit},#{humidityUpperLimit},
+		#{humidityLowerLimit},#{temperDown},#{temperUp},#{humidityDown},#{cycle})
+	</update>
+	
+	
+	<select id="getDeviceById" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(id) id,name ,IFNULL(addr,'') addr 
+		from t_device d where dev_type = #{devType}
+	</select>
+	
+	<select id="getHistoryValue" resultType="com.jeeplus.common.persistence.MapEntity">
+		select history_time,history_value,concat(id) id
+		from t_history_data_final 
+		<where>
+		 ch_id = #{chId} 
+		 <if test="beginTime != null and beginTime !=''">
+		 and history_time &gt;= #{beginTime}
+		 </if>		 
+		 <if test="endTime != null and endTime !=''">
+		  and history_time &lt;= #{endTime}
+		 </if>		
+		</where>
+		order by history_time
+	</select>
+
+
+</mapper>

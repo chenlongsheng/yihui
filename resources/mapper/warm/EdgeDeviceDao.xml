@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.warm.dao.EdgeDeviceDao">
+
+    <select id="getChannelByCameraId" resultType="map">	
+    	SELECT 
+    	t.id
+		FROM t_channel t 
+		WHERE t.outer_id = #{cameraId} 		
+    </select>
+
+    <select id="getAiAlarmDetail" resultType="map">	
+    	SELECT * FROM t_ai_alarm_log WHERE alarm_log_id = #{alarmId}
+    </select>
+
+    <select id="getMaxAlarmLogId" resultType="java.lang.Long">	
+		SELECT max(id)+1 from t_alarm_log
+    </select>
+
+	<insert id="insertAlarmLog" parameterType="map">
+		insert into t_alarm_log
+		(
+		id,
+		ch_id,
+		alarm_level,
+		occur_time,
+		last_occur_time,
+		alarm_value,
+		is_synced,
+		sync_time,
+		ai_camera_alarm_type
+		)
+		values 
+		(
+		#{id},
+		#{chId},
+		#{alarmLevel},
+		now(),
+		now(),
+		1,
+		0,
+		0,
+		#{aiCameraAlarmType}
+		)
+	</insert>
+	
+	<insert id="insertAiAlarmLog" parameterType="map">
+		insert into t_ai_alarm_log
+		(
+		alarm_log_id,
+		alarm_pic_name,
+		alarm_pic_data_path,
+		pic_width,
+		pic_height,
+		camera_id,
+		camera_name,
+		camera_url
+		)
+		values 
+		(
+		#{alarmLogId},
+		#{alarmPicName},
+		#{alarmPicDataPath},
+		#{imageWidth},
+		#{imageHeight},
+		#{cameraId},
+		#{cameraName},
+		#{cameraUrl}
+		)
+	</insert>
+
+    <select id="getAiAlarmByType" resultType="map">	
+    	SELECT 
+    	tal.id,
+    	tal.occur_time,
+    	taal.alarm_pic_data_path
+		FROM t_alarm_log tal
+		INNER JOIN t_ai_alarm_log taal
+		ON tal.id = taal.alarm_log_id
+		WHERE tal.ai_camera_alarm_type = #{alarmType} 		
+		ORDER BY tal.occur_time DESC
+		LIMIT 10
+    </select>
+
+
+	
+</mapper>

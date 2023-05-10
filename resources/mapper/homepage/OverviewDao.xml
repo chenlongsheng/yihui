@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.homepage.dao.OverviewDao">
+
+	<select id="getOrgList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(id) id,concat(parent_id) parentId,parent_ids
+		parentIds,name,type,code
+		from
+		t_org
+		where code like CONCAT('%',1035,'%');
+	</select>
+
+
+	<select id="codeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select dev_type id, name from pdf_code where status = 6
+	</select>
+
+
+	<select id="pdfListById" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		concat(o.id) id,
+		concat(o.parent_id) pId,
+		o.parent_ids pIds,
+		o.name,
+		o.type,
+		o.code,
+		o.coords_x coordsX,
+		o.coords_y
+		coordsY,
+		u.name userName,
+		u.mobile,
+		po.address,
+		IFNULL(
+		(select r.real_value from t_device d left join t_channel c on
+		c.dev_id = d.id
+		LEFT JOIN t_real_data r on r.id = c.id where d.org_id= o.id and d.dev_type= 184 and c.ch_no = 24),0)
+		status,
+		IFNULL(
+		(select
+		max(warn) warn
+		from t_device d
+		left join t_channel c on c.dev_id = d.id
+		LEFT JOIN t_real_data r
+		on
+		r.id = c.id where d.org_id= o.id),0) warn
+		from pdf_org po
+		inner join t_org o on po.t_org_id = o.id
+		inner join
+		sys_user_bureau ub on ub.bureau_id = po.bureau_id
+		left
+		join
+		pdf_principal pp on pp.pdf_id = o.id
+		LEFT JOIN sys_user u on
+		u.id = pp.user_id
+		<where>
+			<if test="userId != null and userId !=''">
+				and ub.user_id =#{userId}
+			</if>
+		</where>
+	</select>
+
+	<select id="getChIds" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(c.id) chId from t_device d inner join t_channel c on c.dev_id =
+		d.id where d.org_id = #{orgId}
+	</select>
+
+	<!-- 统计主电备电 -->
+	<select id="statisticsCount" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		eb.name bureauName,
+		COUNT(*) allCount,
+		SUM(case when r.real_value =
+		0 then 1 else 0 end) mainCount
+		from t_device d
+		left join t_channel c on c.dev_id = d.id
+		left join t_real_data r on r.id =
+		c.id
+		inner join pdf_org po on po.t_org_id = d.org_id
+		inner join pdf_electricity_bureau eb on eb.id = po.bureau_id
+		inner
+		join sys_user_bureau ub on ub.bureau_id= eb.id
+		where ub.user_id = #{userId} and d.dev_type = 184 and c.ch_no = 24
+		GROUP
+		BY eb.id
+	</select>
+
+
+	<select id="devCountTop5" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		*,(IFNULL(m.devCount,0) + IFNULL(n.chCount,0)) allCount
+		from (
+
+		select
+		eb.id bureauId,
+		eb.name bureauName,
+		count(*) devCount,
+		sum(case when d.dev_type = 184 then 1 else 0 end) '184',
+		sum(case
+		when d.dev_type = 169 then 1 else 0 end) '169',
+		sum(case when d.dev_type = 162 then 1 else 0 end) '162',
+		sum(case when
+		d.dev_type = 168 then 1 else 0 end) '168',
+		sum(case when d.dev_type = 174 then 1 else 0 end) '174',
+		sum(case when
+		d.dev_type = 172 then 1 else 0 end) '172'
+
+		from t_device d inner join pdf_org po on po.t_org_id = d.org_id
+		inner join
+		pdf_electricity_bureau eb on eb.id =
+		po.bureau_id
+		left join sys_user_bureau ub on ub.bureau_id = eb.id
+		where ub.user_id =
+		#{userId} GROUP BY eb.id) m
+
+		left join
+		(
+		select
+		eb.id bureauId,
+		eb.name bureauName,
+		count(*) chCount,
+		sum(case when
+		d.channel_type = 202 then 1 else 0 end)
+		'202',
+		sum(case when d.channel_type = 220 then 1 else 0 end) '220',
+		sum(case when
+		d.channel_type = 240 then 1 else 0
+		end) '240',
+		sum(case when d.channel_type = 225 then 1 else 0 end) '225',
+		sum(case when
+		d.channel_type = 2 then 1 else 0 end) '2',
+		sum(case
+		when d.channel_type = 3 then 1 else 0 end) '3'
+		from t_channel d inner
+		join pdf_org po on po.t_org_id = d.logic_org_id
+		inner join pdf_electricity_bureau eb on eb.id = po.bureau_id
+		left join
+		sys_user_bureau ub on ub.bureau_id = eb.id
+		where
+		ub.user_id = #{userId} and d.channel_type is not null
+		GROUP BY eb.id
+		) n
+		on m.bureauId = n.bureauId ORDER BY allCount desc LIMIT 5
+	</select>
+
+
+	<select id="alarmCountTop10" resultType="com.jeeplus.common.persistence.MapEntity">
+		select eb.name bureauName,COUNT(*) count
+		from t_alarm_log a
+		inner join t_channel c on c.id = a.ch_id
+		left join pdf_org o
+		on o.t_org_id = c.logic_org_id
+		inner JOIN
+		pdf_electricity_bureau eb on eb.id = o.bureau_id
+		left join sys_user_bureau ub
+		on ub.bureau_id =eb.id
+		<where>
+			ub.user_id = #{userId}
+			<if test="beginDate != null and beginDate != ''">
+				and a.occur_time &gt;= DATE_FORMAT(#{beginDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != null and endDate != ''">
+				and a.occur_time &lt;= DATE_FORMAT(#{endDate},'%Y-%m-%d 23:59:59')
+			</if>
+		</where>
+		GROUP BY eb.id ORDER BY count desc limit 10
+	</select>
+
+	<select id="getOrgDetails" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(p.level,'KV') level,
+		CONCAT(ROUND(SUM(capacity),0),'KVA') totalCapacity,
+		CONCAT(ROUND(SUM(changer_num),0),'台') totalChangerNum,
+		CONCAT(ROUND(SUM(high_voltage),0),'路') totalHighVoltage,
+		CONCAT(ROUND(SUM(high_cabinet),0),'面') totalHighCabinet,
+		CONCAT(ROUND(SUM(low_cabinet),0),'面') totalLowCabinet
+		from t_org o
+		inner join pdf_org p on p.t_org_id =o.id
+		where type = 5
+	</select>
+
+
+
+	<!-- 能效总览 -->
+	<select id="getDataByOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select *,
+		SUM(value) allValue,
+		SUM(value)*(select ROUND(AVG(price),3)
+		from
+		star_energy_charge) totalPrice,MONTH(time) month
+		from (
+		select c.name
+		,c.id,SUM(h.value) value,h.time,o.name orgName,o.id
+		orgId
+		from t_channel c
+		inner
+		join t_elec_history_data h on c.id = h.ch_id
+		left join t_org o on o.id = c.logic_org_id
+		where
+		c.ch_type = 403 and loop_type = 4 and
+		time &gt;= DATE_FORMAT(NOW(),'%Y-01-01') and h.value !=0
+		GROUP BY
+		ch_id,MONTH(time)
+		) m
+		GROUP BY MONTH(time)
+	</select>
+
+	<select id="getEnergyList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		*,
+		SUM(value) allValue,
+		SUM(value)*(select ROUND(AVG(price),3) from
+		star_energy_charge) totalPrice
+		from (
+		select
+		c.name,
+		c.id,
+		SUM(value) value,
+		h.time,
+		o.type,
+		oo.name orgName, concat(oo.id)
+		orgId,
+		LENGTH(CONCAT(o.parent_ids,o.id)) orgLength
+		from t_org o
+		left join t_org oo on oo.type = 5 and oo.id =
+		substring(CONCAT(o.parent_ids,o.id), 20, 18)
+
+		inner join
+		t_channel c on o.id = c.logic_org_id
+		inner join
+		t_elec_history_data h on c.id = h.ch_id
+		where c.ch_type = 403 and c.type_id = 3 and o.loop_type = 4 and
+		(time &gt;=
+		DATE_FORMAT(NOW(), '%Y-%m-%d') and time &lt;= NOW()) and h.value != 0
+		GROUP BY ch_id
+		) m
+		GROUP BY orgId
+	</select>
+
+
+	<select id="getchorglist" resultType="java.lang.String">
+		select
+		o.id
+		from t_channel c
+		inner join t_org o on o.id = c.logic_org_id
+		where
+		ch_type = 403 and o.loop_type = 4
+	</select>
+
+
+	<select id="getOrgs" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		oo.name orgName,
+		oo.id pdfId,
+		o.id orgId
+		from t_channel c
+		inner join t_org o
+		on o.id = c.logic_org_id
+		left join t_org oo on oo.type = 5 and oo.id =
+		substring(CONCAT(o.parent_ids,o.id), 20, 18)
+		where ch_type = 403 and o.loop_type = 4
+		order by oo.create_date
+	</select>
+
+
+	<select id="getPdfs" resultType="java.lang.String">
+		select
+		oo.id pdfId
+		from t_channel c
+		inner join t_org o on o.id = c.logic_org_id
+		left join t_org oo on oo.type = 5 and
+		oo.id = substring(CONCAT(o.parent_ids,o.id), 20, 18)
+		where ch_type = 403 and
+		o.loop_type = 4
+		group by oo.id
+		order by
+		oo.create_date desc
+	</select>
+</mapper>

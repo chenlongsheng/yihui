@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.LoadUnitAdjustProportionDao">
+
+	<select id="loadAllLoopAdjustProportion" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT * 
+		FROM star_unit_loop_org sulo
+	</select>
+	
+	<select id="loadAllUnitAdjustStrategy" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT seus.month,seus.unit_id,SUM(seus.real_value) real_value
+		FROM star_elec_unit_strategy seus
+		GROUP BY seus.month,seus.unit_id
+	</select>
+
+	<select id="getUnitLoopOrg" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT *
+		FROM star_unit_loop_org sulo
+		WHERE sulo.unit_id = #{unitId}
+		and sulo.loop_org_id = #{orgId}
+	</select>
+
+
+</mapper>

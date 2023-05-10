@@ -1,0 +1,550 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.PowerAnalysisDao">
+	<!-- 
+	<select id="analysisReports" resultType="com.jeeplus.common.persistence.MapEntity">
+
+
+		select name '回路名称',
+		<foreach collection="numList" item="emp" separator=",">
+			round(max(case when time= #{emp} then (mvalue-minvalue)
+			end) ,2) '${emp}'
+		</foreach>
+		from (
+		select
+		CONCAT(dd.bus_addr,'_',p.name) name,
+		DATE_FORMAT(history_time,'%H') time,
+		max(history_value) mvalue,
+		min(history_value) minvalue
+
+
+		FROM
+		t_channel c
+		left join
+		t_device_detail dd on dd.id =c.dev_id
+		inner join
+		t_history_data_final h on h.ch_id = c.id
+		inner join pdf_code p on
+		p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type
+		where h.ch_id in (${chIds}) and h.history_time
+		&gt;#{beginTime} and h.history_time
+		&lt;=#{endTime} GROUP BY c.id,
+		DATE_FORMAT(h.history_time,'%Y-%m-%d %H')
+
+
+		) m GROUP BY name
+	</select>
+ 	-->
+ 	
+ 	<select id="analysisReportByLoopId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) as "total",
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') as "showTime"
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id 
+			FROM t_channel tc 
+			WHERE tc.ch_type in (403,108)
+			AND tc.type_id = 3 
+			AND tc.logic_org_id in (${loopId})
+			)
+		) 
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%s') &gt;= #{startTime}
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%s') &lt;= #{endTime} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		ORDER BY tehd.time 	
+		LIMIT 25
+	</select>
+	
+ 	
+ 	
+ 	<select id="analysisReportByUnitId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total,
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') showTime
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id FROM t_channel tc
+			WHERE 
+			tc.ch_type in (403,108)
+			AND tc.type_id = 3
+			AND tc.logic_org_id in (
+				(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )
+			)
+			)  
+		) 
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%s') &gt;= #{startTime}
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%s') &lt;= #{endTime} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		ORDER BY tehd.time 	
+	</select>
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+	<!-- 
+	<select id="electricReport" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		CONCAT(dd.bus_addr,'_',p.name) name,
+		CONCAT(IFNULL(max(history_value),0)) endValue,
+		CONCAT(IFNULL(min(history_value),0)) beginValue,
+		format(max(history_value)-min(history_value),2) diffValue
+
+		FROM
+		t_channel c
+		left join
+		t_device_detail dd on dd.id =c.dev_id
+		inner join t_history_data_final h on h.ch_id = c.id
+		inner join pdf_code p on
+		p.status = 29 and
+		SUBSTR(c.name,1,2) =
+		p.model_type
+		where h.ch_id in (${chIds}) and h.history_time &gt;#{beginTime} and
+		h.history_time
+		&lt;=#{endTime} GROUP BY
+		c.id
+
+	</select>
+
+ 	-->
+
+	<select id="electricReportByLoopId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id 
+			FROM t_channel tc 
+			WHERE tc.ch_type in (403,108)
+			AND tc.type_id = 3 
+			AND tc.logic_org_id in (${loopId})
+			)
+		) 
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%S') &gt;= #{startTime}
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%S') &lt;= #{endTime}
+		ORDER BY tehd.time DESC 	
+	</select>
+
+
+	<select id="electricReportByUnitId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id FROM t_channel tc
+			WHERE 
+			tc.ch_type in (403,108)
+			AND tc.type_id = 3
+			AND tc.logic_org_id in (
+				(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )
+			)
+			)  
+		) 
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%S') &gt;= #{startTime}
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d %H:%i:%S') &lt;= #{endTime}
+		ORDER BY tehd.time DESC 
+	</select>
+
+
+	<select id="getStarElectricityUnit" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		seu.id,
+		seu.name
+		FROM star_electricity_unit seu
+		WHERE seu.id = #{unitId}
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="daypartData" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		x.*,(value0+value1+value2) allvalue,(amount0+amount1+amount2)
+		allamount
+		from
+		(select
+		name,
+		Format(IFNULL(max(case when state =0 then value end),'0'),2) value0,
+		Format(IFNULL(max(case
+		when state =0 then price end),'0'),2) price0,
+		Format(IFNULL(max(case when state =0 then allPrice end),'0'),2) amount0,
+
+		Format(IFNULL(max(case when state =1 then value end),'0'),2) value1,
+		Format(IFNULL(max(case when state =1 then price
+		end),'0'),2) price1,
+		Format(IFNULL(max(case when state =1 then allPrice end),'0'),2) amount1,
+
+		Format(IFNULL(max(case
+		when state =2 then value end),'0'),2) value2,
+		Format(IFNULL(max(case when state =2 then price end),'0'),2) price2,
+		Format(IFNULL(max(case when state =2 then allPrice end),'0'),2) amount2
+		FROM
+		(
+		select
+		name,
+		round((max(endValue)-min(beginValue)) * price,2) allPrice,
+		state,
+		price,
+		(max(endValue)-min(beginValue)) value
+		FROM (
+		select
+		CONCAT(dd.bus_addr,'_',p.name) name,
+		max(history_value) endValue,
+		min(history_value) beginValue,
+		max(history_value) -min(history_value) value,
+
+		DATE_FORMAT(history_time,'%H') time,
+		(select price FROM star_energy_charge
+		s where start_time &lt;
+		DATE_FORMAT(h.history_time,'%H:%i:%s')
+		and end_time &gt;=
+		DATE_FORMAT(h.history_time,'%H:%i:%s')) price,
+
+		(select state FROM star_energy_charge s where
+		start_time
+		&lt;DATE_FORMAT(h.history_time,'%H:%i:%s')
+		and end_time &gt;= DATE_FORMAT(h.history_time,'%H:%i:%s')) state
+
+		FROM
+		t_channel c
+		left join t_device_detail dd on dd.id =c.dev_id
+		inner join t_history_data_final h on h.ch_id = c.id
+		inner
+		join pdf_code p on p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type where h.ch_id in (${chIds}) and h.history_time
+		&gt;#{beginTime}
+		and h.history_time &lt;=concat(#{endTime},' 23:59:59')
+		GROUP BY
+		c.id,DATE_FORMAT(history_time,'%Y-%m-%d
+		%H')
+		) m GROUP BY
+		name,state
+		) n group by name
+		) x
+	</select>
+
+	<update id="deleteChanger">
+		delete from star_energy_charge;
+	</update>
+
+	<insert id="modifyCharges">
+		insert into
+		star_energy_charge(start_time,end_time,state,price)values(#{startTime},#{endTime},#{state},#{price});
+	</insert>
+
+	<select id="selectCharges" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		id,
+		start_time startTime,
+		end_time endTime,
+		state,
+		price 
+		from
+		star_energy_charge
+	</select>
+
+	<select id="getLoopChannel" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT  
+		tc.id chId,
+		too.name orgName,
+		too.code orgCode,
+		concat(too.parent_ids,too.id,',') parentIds,
+		too.parent_id parentId,
+		concat(too.id) orgId,
+		too.type
+		from 
+		t_channel tc
+		inner join t_org too
+		on too.id = tc.logic_org_id
+		where 
+		too.code like '10350104%'
+		and tc.ch_type in (403,108)
+		and too.type = #{orgType}
+		ORDER BY too.parent_id,too.order_no,too.create_date desc
+	</select>
+	
+	<select id="getUnitLoopList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		seu.id unitId,
+		seu.name unitName,
+		sulo.loop_org_id loopOrgId,
+		sulo.son_loop_ids sonLoopIds,
+		tc.id chId,
+		seu.order_no orderNo
+		
+		FROM star_electricity_unit seu
+		INNER JOIN star_unit_loop_org sulo
+		ON seu.id = sulo.unit_id
+		INNER JOIN t_channel tc
+		ON tc.logic_org_id = sulo.loop_org_id
+		WHERE 
+		tc.ch_type in (403,108)
+				
+	</select>
+	
+
+
+	<select id="getBreauOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+
+		select sb.bureau_id,p.name,SUM(k.value) allvalues,SUM(aftervalue) aftervalues
+		from star_bureau_loop sb
+		inner JOIN pdf_electricity_bureau p on p.id = sb.bureau_id
+		inner join (
+
+
+		select concat(l.id) id,concat(l.parent_id) parentId,l.code,l.name,l.addr,
+		ROUND(l.max,2) max,
+		ROUND(l.min,2) min,
+		ROUND(l.value,2) value,
+		IFNULL(ROUND(p.allvalue,2),0) sumValue,
+		ROUND(alvalue0,2) alvalue0,
+		ROUND(u.value,2)
+		superiorvalue,
+		IFNULL(ROUND((u.value - alvalue0)*l.value/alvalue0,2),0) shareloss,
+		l.type,
+		case when (l.value + (u.value
+		- alvalue0)*l.value/alvalue0) is null then ROUND(l.value,2) else ROUND((l.value + (u.value -
+		alvalue0)*l.value/alvalue0),2) end
+		aftervalue,
+		case when u.value is null then '100%' else
+		CONCAT(ROUND(l.value*100/alvalue0,2),'%') end proportion,
+
+		case when p.allvalue is null then 0 else ROUND((l.value -
+		IFNULL(p.allvalue,0)),2) end diffvalue,
+
+		case when
+		(l.value - IFNULL(p.allvalue,0))/l.value &lt; 1 then
+		concat(ROUND((l.value - IFNULL(p.allvalue,0))*100/l.value,2),'%') else 0
+		end lossproportion
+		from
+		(
+		select o.id,
+		o.parent_id,o.code,
+		(o.type-6) type,o.name,d.addr,MAX(history_value) max,min(history_value) min,MAX(history_value)-
+		min(history_value) value
+		from t_org o inner join t_device d on d.org_id = o.id
+		inner join t_channel c on c.dev_id =d.id
+		inner join t_history_data_final h on h.ch_id = c.id
+		where o.type >5 and history_time &gt; #{beginTime} and history_time
+		&lt; #{endTime}
+		group by ch_id
+		order by o.code ) l
+		left join
+		(
+		select *,SUM(value) allvalue from (
+		select o.id,
+		o.parent_id,o.code,
+		(o.type-6) type,o.name,d.addr,MAX(history_value) max,min(history_value) min,MAX(history_value)-
+		min(history_value) value
+		from t_org o inner join t_device d on d.org_id = o.id
+		inner join t_channel c on c.dev_id =d.id
+		inner join t_history_data_final h on h.ch_id = c.id
+		where o.type >5 and history_time &gt; #{beginTime} and history_time
+		&lt; #{endTime}
+		group by ch_id
+		) m GROUP BY parent_id ) p on p.parent_id = l.id
+
+		left join
+		(
+		select *,SUM(value) alvalue0
+		from (
+		select o.id,
+		o.parent_id,o.code,
+		(o.type-6) type,o.name,d.addr,MAX(history_value) max,min(history_value)
+		min,MAX(history_value)- min(history_value) value
+		from t_org o inner join t_device d on d.org_id = o.id
+		inner join
+		t_channel c on c.dev_id =d.id
+		inner join t_history_data_final h on h.ch_id = c.id
+		where o.type >5 and history_time &gt;
+		#{beginTime} and history_time &lt; #{endTime}
+		group by ch_id
+		) m GROUP BY parent_id ) G on G.parent_id = l.parent_id
+		left join
+		(
+		select * from (
+		select o.id,
+		o.parent_id,o.code,
+		(o.type-6) type,o.name,d.addr,MAX(history_value)
+		max,min(history_value) min,MAX(history_value)- min(history_value) value
+		from t_org o inner join t_device d on d.org_id
+		= o.id
+		inner join t_channel c on c.dev_id =d.id
+		inner join t_history_data_final h on h.ch_id = c.id
+		where o.type >5 and
+		history_time &gt; #{beginTime} and history_time &lt; #{endTime}
+		group by ch_id
+		) m ) u on u.id = l.parent_id
+
+		) k
+		on k.id = sb.loop_org_id
+		GROUP BY sb.bureau_id
+	</select>
+
+
+
+
+
+
+
+
+ 	<select id="getPdfList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		concat(too.id) orgId,
+		too.name orgName,
+		too.code,
+		concat(too.parent_ids,too.id,',') parentIds,
+		too.type
+		FROM t_org too 
+		WHERE too.type = 5
+		ORDER BY too.parent_id,too.order_no,too.create_date desc
+	</select>
+
+
+
+ 	<select id="getLoopMonthConsumption" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		sum(tehd.value) sumValue,
+		org_id orgId
+		FROM t_elec_history_data tehd
+		WHERE 
+		DATE_FORMAT(tehd.time,'%Y-%m') = #{month}
+		GROUP BY tehd.org_id 
+	</select>
+	
+ 	<select id="getUnitList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		seu.id,
+		name,
+		order_no,
+		sulo.loop_org_id
+		FROM
+		star_electricity_unit seu
+		LEFT JOIN star_unit_loop_org sulo
+		ON seu.id = sulo.unit_id
+		ORDER BY order_no
+	</select>
+
+
+
+ 	<select id="getOutLoopList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		concat(too.id) orgId,
+		too.name orgName,
+		too.code,
+		too.parent_id parentId,
+		concat(too.parent_ids,too.id,',') parentIds,
+		too.type
+		FROM t_org too 
+		WHERE too.type = 8
+		ORDER BY too.parent_id,too.order_no,too.create_date desc
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="getLineLossData" resultType="com.jeeplus.common.persistence.MapEntity"></select>
+	
+	<select id="getHistoryData" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT 
+	thdf.id,
+	thdf.ch_id,
+	thdf.history_value,
+	thdf.history_time
+	from t_history_data_final thdf
+	where thdf.ch_id = #{chId}
+	and thdf.history_time = #{historyTime}
+	</select>
+	
+	
+	<select id="getLineLossMaxDataChIdAndHistoryTime" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT 
+	dataTable.chId chId,
+	max(dataTable.historyTime) historyTime
+	FROM
+	(
+		SELECT
+		thdf.ch_id chId,
+		thdf.history_time historyTime
+		from t_history_data_final thdf
+		where thdf.ch_id in (
+			SELECT 
+			tc.id chId
+			from 
+			t_channel tc
+			inner join t_org too
+			on too.id = tc.logic_org_id
+			where 
+			too.code like '10350104%'
+			and tc.ch_type = 403
+			and too.type = #{orgType}
+		)
+		and thdf.history_time &gt;= #{beginTime}
+		and thdf.history_time &lt;= #{endTime}
+		
+		GROUP BY thdf.ch_id,thdf.history_time
+		HAVING count(1) = 1
+	
+	) dataTable
+	group by dataTable.chId	
+	</select>
+		
+	<select id="getLineLossMinDataChIdAndHistoryTime" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT 
+	dataTable.chId chId,
+	min(dataTable.historyTime) historyTime
+	FROM
+	(
+		SELECT
+		thdf.ch_id chId,
+		thdf.history_time historyTime
+		from t_history_data_final thdf
+		where thdf.ch_id in (
+			SELECT 
+			tc.id chId
+			from 
+			t_channel tc
+			inner join t_org too
+			on too.id = tc.logic_org_id
+			where 
+			too.code like '10350104%'
+			and tc.ch_type = 403
+			and too.type = #{orgType}
+		)
+		and thdf.history_time &gt;= #{beginTime}
+		and thdf.history_time &lt;= #{endTime}
+		
+		GROUP BY thdf.ch_id,thdf.history_time
+		HAVING count(1) = 1
+	
+	) dataTable
+	group by dataTable.chId	
+	</select>
+	
+	
+</mapper>

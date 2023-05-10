@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.EnergyAnalysisDao">
+
+
+
+
+	<select id="tDeviceVoltageList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(id) id,name,parent_id parentId from t_device d
+		where
+		dev_type =#{devType}
+	</select>
+
+	<select id="tDeviceIncomingList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id, model_type model,name,value outModel from pdf_code where status = 29
+	</select>
+
+
+	<select id="historyListByHour" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONVERT(SUM(mValue),decimal(19,2))
+		mValue,CONVERT(SUM(minValue),decimal(19,2)) minValue,
+		<if test="type == 0">
+			DATE_FORMAT(time,'%H') time ,
+		</if>
+		<if test="type == 1">
+			DATE_FORMAT(time,'%d') time ,
+		</if>
+		<if test="type == 2">
+			DATE_FORMAT(time,'%m') time ,
+		</if>
+		0 value
+		from (
+		select c.id,
+		c.name,MAX(history_value) mValue,min(history_value) minValue,
+		DATE_FORMAT(h.history_time,'%Y-%m-%d %H') time
+
+		from
+		t_channel c
+		inner join t_history_data_final h on h.ch_id = c.id
+		inner
+		join pdf_code p on p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		dev_id in (${devId}) and c.ch_type = 187
+		<if test="ids != null and ids != ''">
+			and p.id in (${ids})
+		</if>
+		<if test="type == 0">
+			and h.history_time &gt;= DATE_SUB(#{time},INTERVAL 1 day) and h.history_time &lt;= CONCAT(#{time},'
+			23:59:59')
+		</if>
+		<if test="type == 1">
+			and h.history_time &gt;= DATE_FORMAT((DATE_sub((DATE_SUB(#{time},INTERVAL dayofmonth(#{time})-1
+			DAY)),INTERVAL 0
+			month)),'%Y-%m-%d')
+			and
+			h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL
+			dayofmonth(#{time})-1 DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+		</if>
+		<if test="type == 2">
+			and h.history_time &gt;= DATE_FORMAT((DATE_SUB((DATE_SUB(#{time},INTERVAL dayofyear(#{time})-1
+			DAY)),INTERVAL 0
+			YEAR)),'%Y-%m-%d')
+			and
+			h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL
+			dayofyear(#{time})-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d')
+
+		</if>
+		GROUP BY c.id		
+		<if test="type == 0">
+			, DATE_FORMAT(history_time,'%Y%m%d%H') ORDER BY history_time) m GROUP BY DATE_FORMAT(time,'%Y%m%d%H')
+		</if>
+		<if test="type == 1">
+			, DATE_FORMAT(h.history_time,'%Y%m%d') ORDER BY history_time) m GROUP BY DATE_FORMAT(time,'%Y%m%d')
+		</if>
+		<if test="type == 2">
+			,DATE_FORMAT(h.history_time,'%Y%m') ORDER BY history_time) m GROUP BY DATE_FORMAT(time,'%Y%m')
+		</if>
+	</select>
+
+
+
+
+
+	<!-- 成本 -->
+	<select id="historyListBymoney" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONVERT(SUM(mValue),decimal(19,2)) mValue,
+		CONVERT(SUM(minValue),decimal(19,2)) minValue,
+		avg(price) avgPrice,
+		<if test="type == 0">
+			DATE_FORMAT(time,'%H') time,
+		</if>
+		<if test="type == 1">
+			DATE_FORMAT(time,'%d') time,
+		</if>
+		<if test="type == 2">
+			DATE_FORMAT(time,'%m') time,
+		</if>
+		0 value
+		from (
+		select c.id,
+		c.name,MAX(history_value) mValue,
+		min(history_value) minValue,
+		DATE_FORMAT(h.history_time,'%Y-%m-%d %H') time,
+		(select price from star_energy_charge s where start_time &lt;DATE_FORMAT(h.history_time,'%H:%i:%s')
+		and end_time &gt;= DATE_FORMAT(h.history_time,'%H:%i:%s')) price
+
+		from
+		t_channel c
+		inner join t_history_data_final h on h.ch_id = c.id
+		inner join pdf_code p on p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		dev_id in (${devId}) and c.ch_type = 187
+		<if test="ids != null and ids != ''">
+			and p.id in (${ids})
+		</if>
+		<if test="type == 0">
+			and h.history_time &gt;= DATE_SUB(#{time},INTERVAL 1 day) and h.history_time &lt;= CONCAT(#{time},'	23:59:59')
+		</if>
+		<if test="type == 1">
+			and h.history_time &gt;= DATE_FORMAT((DATE_sub((DATE_SUB(#{time},INTERVAL dayofmonth(#{time})-1
+			DAY)),INTERVAL 0
+			month)),'%Y-%m-%d')
+			and
+			h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL
+			dayofmonth(#{time})-1 DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+		</if>
+		<if test="type == 2">
+			and h.history_time &gt;= DATE_FORMAT((DATE_SUB((DATE_SUB(#{time},INTERVAL dayofyear(#{time})-1
+			DAY)),INTERVAL 0
+			YEAR)),'%Y-%m-%d')
+			and
+			h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL
+			dayofyear(#{time})-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d')
+		</if>
+		GROUP BY c.id
+		<if test="type == 0">
+			,DATE_FORMAT(history_time,'%Y%m%d%H') ORDER BY history_time) m GROUP BY DATE_FORMAT(time,'%Y%m%d%H')
+		</if>
+		<if test="type == 1">
+			, DATE_FORMAT(h.history_time,'%Y%m%d'),DATE_FORMAT(h.history_time,'%Y%m%d%H') ORDER BY history_time) m
+			GROUP BY DATE_FORMAT(time,'%Y%m%d')
+		</if>
+		<if test="type == 2">
+			,DATE_FORMAT(h.history_time,'%Y%m'),DATE_FORMAT(h.history_time,'%Y%m%d%H') ORDER BY history_time) m GROUP
+			BY DATE_FORMAT(time,'%Y%m')
+		</if>
+	</select>
+
+
+
+
+	<select id="getPrice" resultType="java.lang.String">
+		select FORMAT(avg(price)*#{value},2) price from star_energy_charge
+		WHERE
+		end_time LIKE CONCAT('%', #{time},'%') or start_time LIKE CONCAT('%', #{time},'%')
+		or (end_time &gt; #{time} and
+		start_time &lt; #{time})
+	</select>
+
+
+
+	<select id="getChId" resultType="java.lang.String">
+		select c.id from t_channel c where dev_id = #{devId} and ch_no = (select type_id from pdf_code where id = #{pId})
+	</select>
+
+
+	<update id="insertStarEnergy">
+		insert into
+		star_energy_charge
+		(start_time,end_time,state,price)
+		values
+		(#{startTime},#{endTime},#{state},#{price});
+	</update>
+
+
+
+
+
+
+
+
+
+	<!-- 企业看板今日今月今年 -->
+	<select id="historyTrendByTiPrefix" resultType="java.lang.String">
+		select round(sum(value),2) value from (
+		select p.id
+		pid,p.name,c.id,DATE_FORMAT(h.history_time,'%Y-%m-%d %H') time,MAX(history_value) mValue,min(history_value) minValue,
+		MAX(history_value)-min(history_value) value
+		from
+		t_channel c inner join t_history_data_final h on h.ch_id = c.id
+		inner join pdf_code p on p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		dev_id in (${devId}) and c.ch_type = 187
+		<if test="ids != null and ids != ''">
+			and p.id in (${ids})
+		</if>
+		<if test="type == 0">
+			and h.history_time &gt;= DATE_SUB(#{time},INTERVAL 1 day) and h.history_time &lt;= CONCAT(#{time},'23:59:59')
+		</if>
+		<if test="type == 1">
+			and h.history_time &gt;= DATE_FORMAT((DATE_sub((DATE_SUB(#{time},INTERVAL dayofmonth( #{time} )-1 DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+			and h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL dayofmonth( #{time} )-1 DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+		</if>
+		<if test="type == 2">
+			and h.history_time &gt;= DATE_FORMAT((DATE_SUB((DATE_SUB(#{time},INTERVAL dayofyear( #{time} )-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d') 
+			and	h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL dayofyear(#{time})-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d')
+		</if>
+		GROUP BY c.id
+		<if test="type == 0">
+			, DATE_FORMAT(h.history_time,'%Y%m%d') ORDER BY time ) m GROUP BY DATE_FORMAT(time,'%Y%m%d')
+		</if>
+		<if test="type == 1">
+			, DATE_FORMAT(h.history_time,'%Y%m') ORDER BY time ) m GROUP BY DATE_FORMAT(time,'%Y%m')
+		</if>
+		<if test="type == 2">
+			,DATE_FORMAT(h.history_time,'%Y') ORDER BY time ) m GROUP BY DATE_FORMAT(time,'%Y')
+		</if>
+	</select>
+	
+	<!-- 成本 企业看板今日今月今年 -->
+	<select id="historyTrendBymoney" resultType="java.lang.String">
+		select  round(sum(value)*avg(price),2) value from (
+		select p.id
+		pid,p.name,c.id,DATE_FORMAT(h.history_time,'%Y-%m-%d %H') time,
+		MAX(history_value) mValue,
+		min(history_value) minValue,
+		MAX(history_value) - min(history_value) value,
+		(select price from star_energy_charge s where start_time &lt;DATE_FORMAT(h.history_time,'%H:%i:%s')
+		and end_time &gt;= DATE_FORMAT(h.history_time,'%H:%i:%s')) price
+
+		from
+		t_channel c inner join t_history_data_final h on h.ch_id = c.id
+		inner join pdf_code p on p.status = 29 and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		dev_id in (${devId}) and c.ch_type = 187
+		<if test="ids != null and ids != ''">
+			and p.id in (${ids})
+		</if>
+		<if test="type == 0">
+			and h.history_time &gt;= DATE_SUB(#{time},INTERVAL 1 day) and h.history_time &lt;= CONCAT(#{time},'	23:59:59')
+		</if>
+		<if test="type == 1">
+			and h.history_time &gt;= DATE_FORMAT((DATE_sub((DATE_SUB(#{time},INTERVAL dayofmonth(#{time})-1	DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+			and	h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL dayofmonth(#{time})-1 DAY)),INTERVAL 1 month)),'%Y-%m-%d')
+		</if>
+		<if test="type == 2">
+			and h.history_time &gt;= DATE_FORMAT((DATE_SUB((DATE_SUB(#{time},INTERVAL dayofyear(#{time})-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d') 
+			and	h.history_time &lt;= DATE_FORMAT((DATE_add((DATE_SUB(#{time},INTERVAL dayofyear(#{time})-1 DAY)),INTERVAL 1 YEAR)),'%Y-%m-%d')
+		</if>
+		GROUP BY c.id
+		<if test="type == 0">
+			, DATE_FORMAT(h.history_time,'%Y%m%d%H') ORDER BY time ) m GROUP BY
+			DATE_FORMAT(time,'%Y%m%d')
+		</if>
+		<if test="type == 1">
+			,DATE_FORMAT(h.history_time,'%Y%m%d%H') ORDER BY time ) m GROUP BY
+			DATE_FORMAT(time,'%Y%m')
+		</if>
+		<if test="type == 2">
+			, DATE_FORMAT(h.history_time,'%Y%m%d%H') ORDER BY time ) m GROUP BY
+			DATE_FORMAT(time,'%Y')
+		</if>
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="historyListByLoopId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total, 
+		<if test="type == 2">
+		DATE_FORMAT(tehd.time,'%Y-%m') showTime
+		</if>
+		<if test="type == 1">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d') showTime
+		</if>
+		<if test="type == 0">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') showTime
+		</if>
+		FROM t_elec_history_data tehd 
+		WHERE tehd.org_id in (${orgId})
+		
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		</if>
+		ORDER BY tehd.time DESC 	
+	</select>
+
+
+
+	<select id="historyListByUnitId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total,
+		<if test="type == 2">
+		DATE_FORMAT(tehd.time,'%Y-%m') showTime
+		</if>
+		<if test="type == 1">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d') showTime
+		</if>
+		<if test="type == 0">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') showTime
+		</if>
+		FROM t_elec_history_data tehd
+		WHERE
+		tehd.org_id in (  (SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId})  )	
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		</if>
+		ORDER BY tehd.time DESC
+	</select>
+
+
+
+
+
+
+
+
+
+	<!-- 条形 -->
+	<select id="historyPicsByLoopId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total, 
+		<if test="type == 2">
+		DATE_FORMAT(tehd.time,'%Y-%m') showTime
+		</if>
+		<if test="type == 1">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d') showTime
+		</if>
+		<if test="type == 0">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') showTime
+		</if>
+		FROM t_elec_history_data tehd 
+		WHERE tehd.org_id in (${orgId})
+		
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		</if>
+		ORDER BY tehd.time DESC 	
+	</select>
+
+	<select id="historyPicsByUnitId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		SUM(tehd.value) total,
+		<if test="type == 2">
+		DATE_FORMAT(tehd.time,'%Y-%m') showTime
+		</if>
+		<if test="type == 1">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d') showTime
+		</if>
+		<if test="type == 0">
+		DATE_FORMAT(tehd.time,'%Y-%m-%d %H') showTime
+		</if>
+		FROM t_elec_history_data tehd
+		WHERE
+		tehd.org_id in (
+			(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )       
+		)
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{time} 
+		GROUP BY DATE_FORMAT(tehd.time,'%Y-%m-%d %H')
+		</if>
+		ORDER BY tehd.time DESC
+	</select>
+
+
+	<select id="getSumEnergyByLoopIdAndTime" resultType="java.lang.String">
+		SELECT 
+			SUM(tehd.value) total
+		FROM t_elec_history_data tehd 
+		WHERE tehd.org_id = #{loopId}
+		AND tehd.time  &gt;= DATE_FORMAT(CONCAT(#{startTime},' 00:00:00') ,'%Y-%m-%d %H:%i:%s')
+		AND tehd.time  &lt;= DATE_FORMAT(CONCAT(#{endTime},' 23:59:59') ,'%Y-%m-%d %H:%i:%s')  
+		
+	</select>
+	
+	
+	<select id="getOrgListByOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		CONCAT(too.id) AS id,
+		CONCAT(too.parent_id) AS parent_id,
+		too.name,
+		too.code,
+		too.type 
+		FROM t_org too 
+		WHERE too.code like CONCAT( (SELECT too2.code FROM t_org too2 WHERE too2.id = #{orgId}) ,'%')
+	</select>
+	
+	
+	<!-- 回路今日今月今年 -->
+	<select id="dayMonthYearByLoopId" resultType="java.lang.String">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id 
+			FROM t_channel tc 
+			WHERE tc.ch_type in (403,108)
+			AND tc.type_id = 3 
+			<!-- 
+			AND tc.logic_org_id in ( 
+						(
+						SELECT too.id 
+						FROM t_org too 
+						WHERE too.code 
+						like CONCAT(
+						  (
+							SELECT too2.code 
+							FROM t_org too2 
+							WHERE too2.id = #{loopId}),'%'
+							) 
+						) 
+					)
+			-->
+			AND tc.logic_org_id in (${loopId})			
+			)
+		) 
+		
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = DATE_FORMAT(CURDATE(),'%Y')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+		</if>
+		ORDER BY tehd.time DESC
+	</select>
+	
+	<!-- 单元今日今月今年 -->
+	<select id="dayMonthYearByUnitId" resultType="java.lang.String">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd
+		WHERE
+		tehd.ch_id in (
+			(
+			SELECT tc.id FROM t_channel tc
+			WHERE 
+			tc.ch_type in (403,108)
+			AND tc.type_id = 3
+			AND tc.logic_org_id in (
+				(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )
+			)
+			)        
+		)
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = DATE_FORMAT(CURDATE(),'%Y')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+		</if>
+		ORDER BY tehd.time DESC
+	</select>
+
+	<!-- 回路昨日上月去年 -->
+	<select id="preDayMonthYearByLoopId" resultType="java.lang.String">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd 
+		WHERE tehd.ch_id in ( 
+			(
+			SELECT tc.id 
+			FROM t_channel tc 
+			WHERE tc.ch_type in (403,108)
+			AND tc.type_id = 3 
+			<!-- 
+			AND tc.logic_org_id in ( 
+						(
+						SELECT too.id 
+						FROM t_org too 
+						WHERE too.code 
+						like CONCAT(
+						  (
+							SELECT too2.code 
+							FROM t_org too2 
+							WHERE too2.id = #{loopId}),'%'
+							) 
+						) 
+					)
+			 -->
+			 AND tc.logic_org_id in (${loopId})
+			)
+		) 
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 YEAR),'%Y')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH),'%Y-%m')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY),'%Y-%m-%d')
+		</if>
+		ORDER BY tehd.time DESC	
+	</select>
+	
+	<!-- 单元昨日上月去年 -->
+	<select id="preDayMonthYearByUnitId" resultType="java.lang.String">
+		SELECT 
+		SUM(tehd.value) total
+		FROM t_elec_history_data tehd
+		WHERE
+		tehd.ch_id in (
+			(
+			SELECT tc.id FROM t_channel tc
+			WHERE 
+			tc.ch_type in (403,108)
+			AND tc.type_id = 3
+			AND tc.logic_org_id in (
+				(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )
+			)
+			)        
+		)
+		<if test="type == 2">
+		AND DATE_FORMAT(tehd.time,'%Y') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 YEAR),'%Y')
+		</if>
+		<if test="type == 1">
+		AND DATE_FORMAT(tehd.time,'%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH),'%Y-%m')
+		</if>
+		<if test="type == 0">
+		AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY),'%Y-%m-%d')
+		</if>
+		ORDER BY tehd.time DESC	
+	</select>
+	
+</mapper>

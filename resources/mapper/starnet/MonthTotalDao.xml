@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.MonthTotalDao">
+
+
+	<select id="getMonthTotalValue" resultType="Double">
+		SELECT 
+		month_total_value 
+		FROM star_month_total
+		WHERE month = #{month}
+	</select>
+
+	<insert id="addMonthTotalValue" >
+		INSERT INTO 
+		star_month_total(month,month_total_value)
+		VALUES(#{month},#{value})
+	</insert>
+	
+	<update id="setMonthTotalValue" >
+		UPDATE 
+		star_month_total
+		SET
+		month_total_value = #{value}
+		WHERE month = #{month}
+	</update>
+
+</mapper>

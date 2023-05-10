@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TRealDataDao">
+
+    <sql id="columns">
+        a.id,
+        a.real_value AS "realvalue",
+        a.real_time AS "realTime",
+        a.warn
+    </sql>
+
+    <select id="get" resultType="TRealData">
+        SELECT
+        <include refid="columns"/>
+        FROM t_real_data a
+        WHERE a.id = #{id}
+    </select>
+</mapper>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.enterprise.dao.TOperLogDao">
+
+
+	<select id="login" resultType="java.util.HashMap">
+		select * from sys_user where login_name =#{username} and password =#{password}
+	</select>
+
+
+	<select id="getRealDataListByOrgId" resultType="java.util.HashMap">
+		SELECT
+		IFNULL(a.real_value,'') AS "realValue",
+		a.real_time AS "realTime",
+		a.warn AS "warn",
+		a.start_time AS "startTime",
+		a.end_minute AS "endMinute",
+		channel.id AS "id",
+		channel.dev_id AS "devId",
+		channel.logic_org_id AS "logicOrgId",
+		channel.ch_no AS "chNo",
+		channel.ch_type AS "chType",
+		channel.name AS "name",
+		channel.coords_x AS "coordsX",
+		channel.coords_y AS "coordsY",
+		channel.param0 AS "param0",
+		channel.param1 AS "param1",
+		channel.type_id AS "typeId",
+		channel.del_flag AS "delFlag",
+		IFNULL(tc.monad,'') as monad,
+		o.code,
+		td.name devname
+		FROM t_channel channel
+		INNER JOIN t_device td ON channel.dev_id = td.id
+		INNER JOIN t_org o ON channel.logic_org_id	= o.id
+		INNER JOIN t_code tc ON	channel.ch_type = tc.id AND channel.type_id = tc.type_id
+		LEFT JOIN t_real_data a	ON a.id = channel.id
+		WHERE o.code LIKE
+		CONCAT((SELECT code FROM t_org oo WHERE oo.id=#{id}),'%')
+		order by td.id
+	</select>
+	<!-- 首页 999 -->
+	<select id="getOrgListByLikeName" resultType="TOrg">
+		select
+		a.id AS "id",
+		a.parent_id as parentId,
+		a.code AS "code",
+		a.order_no AS "orderNo",
+		a.name AS "name",
+		a.type as type,
+		a.coords_x AS "coordsX",
+		a.coords_y AS "coordsY",
+		a.del_flag AS "delFlag",
+		a.image AS "image",
+		a.pic_url AS "picUrl"
+		FROM t_org a
+		WHERE a.name LIKE CONCAT('%',#{name},'%')
+		AND a.CODE LIKE
+		CONCAT((SELECT a.CODE FROM t_org a	WHERE a.id = #{id}),'%')
+		ORDER BY a.code desc
+	</select>
+    
+	<!-- 根据ID获取，带父id -->
+	<select id="getOrgById" resultType="java.util.HashMap">
+		select
+		a.id AS "id",
+		a.parent_id as parentId,
+		a.code AS "code",
+		a.order_no AS
+		"orderNo",
+		a.name AS "name",
+		a.coords_x AS "coordsX",
+		a.coords_y AS
+		"coordsY",
+		a.del_flag AS "delFlag",
+		a.image AS "image",
+		a.pic_url AS "picUrl"
+		FROM t_org a
+		WHERE a.id = #{id}
+	</select>
+
+	<insert id="insert">
+		INSERT INTO sys_log(
+			id, 
+			type, 
+			title,
+			create_by, 
+			create_date, 
+			method, 
+			params
+		) VALUES (
+			#{id}, 
+		    1, 
+			#{title}, 
+			#{userId}, 
+			#{date}, 
+			#{method}, 
+			#{params}
+		)
+	</insert>
+
+</mapper>

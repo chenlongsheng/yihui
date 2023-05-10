@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.ElecHistoryDataDao">
+
+
+	<insert id="add">
+		INSERT INTO t_elec_history_data(
+		id,
+		org_id,
+		ch_id,
+		value,
+		time
+		)
+		VALUES (
+		#{id},
+		#{orgId},
+		#{chId},
+		#{value},
+		#{time}
+		)
+	</insert>
+
+	<select id="getMaxElecHistoryDataIdLessThan10000000" resultType="Long">
+		select 
+		max(id) id
+		from
+		t_elec_history_data
+		where id &lt; 10000000
+	</select>
+
+
+	<select id="getSumValueByTimeBetween" resultType="Double">
+		select 
+		sum(value)
+		from
+		t_elec_history_data
+		where org_id = #{loopId}
+		and time &lt;= #{lastWeekToday}
+		and time &gt;= #{lastWeekStart}
+	</select>
+	
+</mapper>

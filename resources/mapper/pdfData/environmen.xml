@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.EnvironmentDao">
+    <select id="getAvgTop10" parameterType="Map" resultType="Map">
+        select oo.name, avg(history_value) avg from (select *from t_history_data_final where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId})) aa LEFT JOIN t_channel cc on aa.ch_id =cc.id LEFT JOIN t_device dd on cc.dev_id = dd.id LEFT JOIN t_org oo on dd.org_id = oo.id
+        GROUP BY dd.org_id ORDER BY avg desc limit 0,10
+    </select>
+    
+    <select id="getAvgTop10_2" parameterType="Map" resultType="Map">
+		select oo.name, avg(history_value) avg 
+		from (
+			  select * from t_history_data_final 
+			  where ch_id in (
+							  select tc.id 
+							  from t_channel tc
+							  inner join t_org o
+							  on tc.logic_org_id = o.id
+							  where o.code like concat(#{code},'%') and ch_type = #{chType} and type_id = #{typeId}
+							 )
+				) aa
+		LEFT JOIN t_channel cc on aa.ch_id =cc.id LEFT JOIN t_device dd on cc.dev_id = dd.id LEFT JOIN t_org oo on dd.org_id = oo.id GROUP BY dd.org_id 
+		ORDER BY avg desc limit 0,10 
+    </select>
+
+    <select id="countAlarmByType" parameterType="map" resultType="map">
+		select count(*) count 
+		from t_alarm_log a 
+		INNER JOIN t_channel b on a.ch_id = b.id
+		INNER JOIN t_org c on b.logic_org_id = c.id 
+		INNER JOIN t_code d on b.ch_type = d.id and b.type_id = d.type_id
+		WHERE 
+		c.code like concat(#{code},'%')
+		AND 
+		d.id = #{type} and d.type_id = #{type_id}
+    </select>
+    
+    <select id="countMonthMonitoring" parameterType="map" resultType="double">
+        select sum(historyValue) from (select ch_id,max(history_value) historyValue from (select *from t_history_data_final where ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) and DATE_FORMAT(history_time,'%Y/%m') =DATE_FORMAT(#{date},'%Y/%m')
+         ORDER BY history_time desc
+        )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa
+    </select>
+
+    <select id="countMonTop10" parameterType="map" resultType="map">
+        select sum(bb.historyValue) sum,name from(select aa.*,o.id orgId,o.name from(select ch_id,max(history_value) historyValue from (select *from t_history_data_final where ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) and DATE_FORMAT(history_time,'%Y/%m/%d') &gt;=DATE_FORMAT(#{startDate},'%Y/%m/%d')
+        and DATE_FORMAT(history_time,'%Y/%m/%d') &lt;=DATE_FORMAT(#{endDate},'%Y/%m/%d')
+        )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa left join t_channel c on aa.ch_id = c.id
+        left join t_device d on d.id = c.dev_id left join t_org o on d.org_id = o.id) bb GROUP BY bb.orgId ORDER BY sum desc limit 0,10
+    </select>
+    
+    <select id="getDeviceOnlineCount" parameterType="map" resultType="int">
+        SELECT count(*) 
+        FROM t_device_detail 
+        WHERE online = 1
+        AND  id in (
+        	SELECT distinct(dev_id) FROM t_channel tc INNER JOIN t_org o ON tc.logic_org_id = o.id
+        	WHERE o.code like CONCAT(#{code},'%') AND tc.ch_type = #{type} AND tc.type_id = #{type_id}
+        )
+    </select>
+    
+    <select id="getDeviceOfflineCount" parameterType="map" resultType="int">
+        SELECT count(*) 
+        FROM t_device_detail 
+        WHERE online = 0
+        AND  id in (
+        	SELECT distinct(dev_id) FROM t_channel tc INNER JOIN t_org o ON tc.logic_org_id = o.id
+        	WHERE o.code like CONCAT(#{code},'%') AND tc.ch_type = #{type} AND tc.type_id = #{type_id}
+        )
+    </select>    
+    
+    <select id="getDeviceCount" parameterType="map" resultType="int">
+        SELECT count(*) 
+        FROM t_device_detail 
+		WHERE id in (
+        	SELECT distinct(dev_id) FROM t_channel tc INNER JOIN t_org o ON tc.logic_org_id = o.id
+        	WHERE o.code like CONCAT(#{code},'%') AND tc.ch_type = #{type} AND tc.type_id = #{type_id}
+        )
+    </select>
+    
+    <select id="getWaterDeviceDayAlarm" parameterType="map" resultType="int">
+        SELECT count(*) 
+        FROM t_alarm_log t
+		WHERE ch_id in (
+        	SELECT tc.id FROM t_channel tc INNER JOIN t_org o ON tc.logic_org_id = o.id
+        	WHERE o.code like CONCAT(#{code},'%') AND tc.ch_type = #{type} AND tc.type_id = #{type_id}
+        )
+        AND DATE_FORMAT(t.occur_time,'%Y/%m/%d') = DATE_FORMAT(now(),'%Y/%m/%d')
+    </select>
+
+
+</mapper>

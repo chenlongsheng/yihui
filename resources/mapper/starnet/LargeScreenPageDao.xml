@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.LargeScreenPageDao">
+
+
+	<select id="getChNames" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(c.id) id, concat(bus_addr,'_',d.name,'(',c.name,')') chName
+		from t_device d
+		LEFT JOIN t_device_detail dd on dd.id =d.id
+		inner join t_channel c on c.dev_id =d.id
+		where dev_type in
+		(169,999) and ch_type in (101,102)
+	</select>
+
+
+	<select id="getHistoryByChId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select h.history_value value,DATE_FORMAT(history_time,'%H') time
+		from
+		t_history_data_final h
+		where ch_id = #{chId} and h.history_time &gt;#{time} and h.history_time &lt;= concat(#{time},'
+		23:59:59')
+		GROUP BY DATE_FORMAT(history_time,'%H')
+		ORDER BY h.history_time
+	</select>
+
+	<select id="getOrgNums" resultType="com.jeeplus.common.persistence.MapEntity">
+		select capacity,changer_num,level,rate,high_voltage,high_cabinet,low_cabinet
+		from t_org o
+		inner join pdf_org p on t_org_id = o.id
+		where bureau_id = 35401
+	</select>
+
+	<select id="getEnergys" resultType="com.jeeplus.common.persistence.MapEntity">
+		select orgId,name,round(SUM(value),2) sumvalue from
+		(select
+		o.id orgId, o.name,
+		h.* ,
+		max(history_value) mvalue,
+		min(history_value) minvalue,
+		max(history_value) - min(history_value) value
+		from t_org o
+		left join t_device d on d.org_id = o.id
+		left join t_channel c on c.dev_id = d.id
+		inner join t_history_data_final h on
+		h.ch_id = c.id
+		where o.type = 5 and d.dev_type = 218 and c.ch_type = 187 and h.history_time &gt; '2021-06-25'
+		GROUP BY
+		c.id
+		) m GROUP BY orgId
+	</select>
+
+
+	<select id="getAmounts" resultType="com.jeeplus.common.persistence.MapEntity">
+		select orgId,name,SUM(amount) allcount
+		from (
+		select
+		* ,
+		round(sum(value)*avg(price),2) amount
+		from
+		(
+		select
+		c.id chId,
+		o.id orgId, o.name,
+		h.* ,
+		max(history_value) mvalue,
+		min(history_value) minvalue,
+		max(history_value) - min(history_value) value,
+		(select price from star_energy_charge s
+		where start_time &lt; DATE_FORMAT(h.history_time , H:%i:%s')
+		and end_time &gt;= DATE_FORMAT(h.history_time,'%H:%i:%s')) price
+		from t_org o left join t_device d on d.org_id = o.id
+		left join t_channel c on c.dev_id = d.id
+		inner join t_history_data_final h on h.ch_id = c.id
+		where o.type = 5 and d.dev_type = 218 and c.ch_type = 187 and h.history_time &gt; '2021-06-25'
+		GROUP BY c.id,DAY(history_time)
+		) m GROUP BY chId
+		) n GROUP BY orgId
+	</select>
+</mapper>

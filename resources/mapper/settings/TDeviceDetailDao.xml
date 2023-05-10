@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TDeviceDetailDao">
+    
+	<sql id="tDeviceDetailColumns">
+		a.id AS "id",
+		a.ip AS "ip",
+		a.port AS "port",
+		a.uname AS "uname",
+		a.upwd AS "upwd",
+		a.mac AS "mac",
+		a.gateway AS "gateway",
+		a.mask AS "mask",
+		a.imei AS "imei",
+		a.outer_id AS "outerId",
+		a.ext_param AS "extParam",
+		a.bus_addr AS "busAddr"
+	</sql>
+	
+	<sql id="tDeviceDetailJoins">
+	</sql>
+	
+    
+	<select id="get" resultType="TDeviceDetail" >
+		SELECT 
+			<include refid="tDeviceDetailColumns"/>
+		FROM t_device_detail a
+		<include refid="tDeviceDetailJoins"/>
+		WHERE a.id = #{id}
+	</select>
+	
+	<select id="findList" resultType="TDeviceDetail" >
+		SELECT 
+			<include refid="tDeviceDetailColumns"/>
+		FROM t_device_detail a
+		<include refid="tDeviceDetailJoins"/>
+		<where>
+			
+			<if test="id != null and id != ''">
+				AND a.id = #{id}
+			</if>
+			<if test="ip != null and ip != ''">
+				AND a.ip = #{ip}
+			</if>
+			<if test="port != null and port != ''">
+				AND a.port = #{port}
+			</if>
+			<if test="uname != null and uname != ''">
+				AND a.uname = #{uname}
+			</if>
+			<if test="upwd != null and upwd != ''">
+				AND a.upwd = #{upwd}
+			</if>
+			<if test="mac != null and mac != ''">
+				AND a.mac = #{mac}
+			</if>
+			<if test="gateway != null and gateway != ''">
+				AND a.gateway = #{gateway}
+			</if>
+			<if test="mask != null and mask != ''">
+				AND a.mask = #{mask}
+			</if>
+			<if test="outerId != null and outerId != ''">
+				AND a.outer_id = #{outerId}
+			</if>
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="findAllList" resultType="TDeviceDetail" >
+		SELECT 
+			<include refid="tDeviceDetailColumns"/>
+		FROM t_device_detail a
+		<include refid="tDeviceDetailJoins"/>
+		<where>
+			
+		</where>		
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<insert id="insert">
+		INSERT INTO t_device_detail(
+			id,
+			ip,
+			port,
+			uname,
+			upwd,
+			mac,
+			gateway,
+			mask,
+			imei,
+			outer_id,
+			ext_param
+		) VALUES (
+			#{deviceId},
+			#{ip},
+			#{port},
+			#{uname},
+			#{upwd},
+			#{mac},
+			#{gateway},
+			#{mask},
+			#{imei},
+			#{outerId},
+			#{extParam}
+		)
+	</insert>
+	
+	<update id="update">
+		UPDATE t_device_detail SET 	
+			ip = #{ip},
+			port = #{port},
+			uname = #{uname},
+			upwd = #{upwd},
+			mac = #{mac},
+			gateway = #{gateway},
+			mask = #{mask},
+			imei = #{imei},
+			outer_id = #{outerId},
+			ext_param = #{extParam}
+		WHERE id = #{id}
+	</update>
+	
+	
+	<!--物理删除-->
+	<update id="delete">
+		DELETE FROM t_device_detail
+		WHERE id = #{id}
+	</update>
+	
+	<!--逻辑删除-->
+	<update id="deleteByLogic">
+		UPDATE t_device_detail SET 
+			del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+	
+	
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="TDeviceDetail" statementType="STATEMENT">
+		select * FROM t_device_detail  where ${propertyName} = '${value}'
+	</select>
+	
+	
+	
+	<select id="tCatgutList" resultType="com.jeeplus.common.persistence.MapEntity">
+	    select a.name devName,
+		concat(a.id) id,a.dev_type devType, substring_index(b.mac,'_', -1) mac,b.online,a.addr,
+		a.del_flag allWarn,1 meter,IFNULL(a.firmware_version,'')
+		firmwareVersion,c.name gateway,
+		d.bus_addr busAddr,CONCAT('/static_modules/device/',tc.icon_skin) iconSkin
+		from t_device a 
+        LEFT JOIN t_code tc on tc.id = a.dev_type and tc.type_id = a.type_id
+        left join t_device_detail b	on a.id = b.id
+		left join t_device c on c.id = a.parent_id
+		left join t_device_detail d on d.id = a.id
+		where a.org_id =#{orgId} and a.dev_type in (179,180,181,182)
+	</select>
+	
+	<select id="deviceChannelList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		concat(c.id) id,
+		concat(c.dev_id) devId,
+		c.ch_type chType,
+		c.type_id typeId,
+		c.name AS "chName",
+		c.channel_type AS "channelType",
+		IFNULL(c.addr,'') AS "addr",
+		c.param0,
+		c.param1,
+		c.param2,
+		c.ch_no chNo,
+		c.online,		
+		FORMAT((d.real_value-param2)/c.param1,c.param0) AS "realValue",
+		d.warn,
+		e.name AS "codeName",
+		IFNULL(e.monad,'') AS "monad"		
+		FROM t_channel c
+		LEFT JOIN t_real_data d ON d.id = c.id		
+		LEFT JOIN t_code e 	ON e.id	= c.ch_type AND e.type_id = c.type_id
+		WHERE c.dev_id = #{devId}
+	</select>
+
+
+	<select id="selectSnByOrgId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(id) id,sn from t_device
+		where org_id = #{orgId} and sn is not null and sn !=''
+	</select>
+		
+	<select id="selectFireware" resultType="com.jeeplus.common.persistence.MapEntity">		
+		select concat(id) id,type,version,url,md5,remark,create_time createTime
+		from (select *,
+		case when @group = type then @num:=@num+1  else @num:=1 end row_number,
+		@group := type  
+		from t_znig8103_firmware ,(select  @num := 0, @group:= '') t
+		order by type, id desc ) as x
+		where x.row_number &lt;=3
+    </select>
+</mapper>

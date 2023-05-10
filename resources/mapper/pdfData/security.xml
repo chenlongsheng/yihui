@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.SecurityDao">
+
+    <select id="getDevList" parameterType="map" resultType="map">
+       select b.id,b.name,b.dev_type,b.type_id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type}
+    </select>
+    
+    <select id="getLatestAlarmTime" parameterType="map" resultType="String">
+        SELECT MAX(a.last_occur_time) end_time from t_alarm_log a
+		INNER JOIN t_channel tc on a.ch_id = tc.id
+        inner join t_device td on td.id = tc.dev_id
+		INNER JOIN t_org o on td.org_id = o.id
+		WHERE o.code like concat(#{code},'%')
+		AND td.dev_type = #{type} and td.type_id  =  #{type_id}
+    
+    
+<!-- 		SELECT MAX(a.last_occur_time) end_time from t_alarm_log a -->
+<!-- 		INNER JOIN t_channel tc on a.ch_id = tc.id -->
+<!-- 		INNER JOIN t_org o on tc.logic_org_id = o.id -->
+<!-- 		WHERE o.code like concat(#{code},'%') -->
+<!-- 		AND tc.ch_type = #{type} and tc.type_id = #{type_id} -->
+
+    </select>
+
+    <select id="getMaxfaultTime" parameterType="map" resultType="String">
+       select max(end_time) from t_fault_log where dev_id in
+       (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+    </select>
+    
+    <select id="getMinCreateDate" parameterType="map" resultType="String">
+        select min(create_date) min from t_device where id in
+        (select b.id from pdf_dev_code a left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+    </select>
+    
+    <select id="countOpen" resultType="int" parameterType="map">
+          select COUNT(*) count from t_device td 
+      INNER JOIN t_channel tc on tc.dev_id = td.id
+      inner join t_real_data tr on tr.id = tc.id
+      left join t_org o on o.id = td.org_id
+      where 
+      (o.parent_ids like CONCAT('%',#{orgId},'%') or o.id = #{orgId})
+      and  td.dev_type = 162 and tc.ch_type = 5 and tc.type_id = 2 and tr.real_value = 1
+    </select>
+
+    <select id="countAlarm" parameterType="map" resultType="int">
+        select count(*) from t_alarm_log t 
+        inner join t_channel tc on t.ch_id = tc.id
+        inner join t_org o on tc.logic_org_id = o.id
+        WHERE o.code like concat(#{code},'%')
+        and DATE_FORMAT(t.occur_time,'%Y/%m') = DATE_FORMAT(#{time},'%Y/%m')
+    </select>
+    
+    <select id="countHourOpen" parameterType="map" resultType="map">
+		SELECT HOUR(history_time) as Hour,(count(*)/#{days}) as Count
+		FROM t_history_data_final
+		WHERE ch_id in
+		(
+		SELECT tc.id 
+		FROM t_channel tc
+		INNER JOIN t_org o on tc.logic_org_id = o.id
+		INNER JOIN t_code tcode on tc.ch_type = tcode.id 
+		AND tc.type_id = tcode.type_id
+		WHERE tc.ch_type=#{chType} 
+		AND tc.type_id=#{typeId}
+		AND o.code like concat(#{code},'%')
+		)
+		AND history_value =1 
+		AND DATE_FORMAT(history_time,'%Y/%m/%d %H:%i:%s') &gt;= DATE_FORMAT(#{startTime},'%Y/%m/%d %H:%i:%s')
+		AND DATE_FORMAT(history_time,'%Y/%m/%d %H:%i:%s') &lt;= DATE_FORMAT(#{endTime},'%Y/%m/%d %H:%i:%s')
+		GROUP BY HOUR(history_time) 
+		ORDER BY Hour(history_time);
+    </select>
+
+    <select id="countOpenTop" parameterType="map" resultType="map">
+       	select o.name,count(*) count from t_device td inner join t_channel tc on tc.dev_id =td.id
+		inner join t_org o on o.id = td.org_id
+		left join t_history_data_final th on th.ch_id = tc.id
+		where
+		DATE_FORMAT(th.history_time,'%Y/%m/%d') &gt;= DATE_FORMAT(#{startDate},'%Y/%m/%d')
+		and DATE_FORMAT(th.history_time,'%Y/%m/%d') &lt;= DATE_FORMAT(#{endDate},'%Y/%m/%d') and	
+		td.dev_type = 162 and tc.ch_type = 5 and tc.type_id = 2 and th.history_value = 1 and
+		(o.parent_ids like CONCAT('%',#{orgId},'%') or o.id = #{orgId}) group by o.id ORDER BY COUNT(*) desc
+		limit 10  
+    </select>
+
+    <select id="wiretemperature" parameterType="map" resultType="map">
+        select max(history_value) max,min(history_value) min from (select *from t_history_data_final where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId})) aa
+    </select>
+</mapper>

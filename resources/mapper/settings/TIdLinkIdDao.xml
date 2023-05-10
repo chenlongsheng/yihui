@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TIdLinkIdDao">
+
+	<sql id="tIdLinkIdColumns">
+		a.id AS "id",
+		a.src_id AS "srcId",
+		a.dest_id AS "destId",
+		a.link_type AS "linkType",
+		a.param AS "param",
+		a.not_use AS "notUse",
+		ar.name AS "tChannel.name",
+		ch.name AS "tChannel.destName",
+		co.name AS "coName",
+		deco.name AS "decoName",
+		link.name AS "linkName",
+		a.del_flag AS "delFlag",
+		a.create_by AS "createBy.id",
+		a.create_date AS "createDate",
+		a.update_by AS "updateBy.id",
+		a.update_date AS "updateDate"
+	</sql>
+
+	<sql id="tIdLinkIdJoins">
+		LEFT JOIN t_channel ar ON ar.id = a.src_id
+		LEFT JOIN t_channel ch ON ch.id = a.dest_id
+		LEFT JOIN t_code co ON	ar.ch_type = co.id and ar.type_id = co.type_id
+		LEFT JOIN t_code deco ON ch.ch_type = deco.id and ch.type_id =	deco.type_id
+		LEFT JOIN (select * from t_code where type_id=5) link ON link.id = a.link_type
+	</sql>
+
+	<select id="codeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select * from t_code where type_id=5
+	</select>
+
+	<select id="get" resultType="TIdLinkId">
+		SELECT
+		<include refid="tIdLinkIdColumns" />
+		FROM t_id_link_id a
+		<include refid="tIdLinkIdJoins" />
+		WHERE a.id = #{id}
+	</select>
+
+	<select id="TIdLinkIdList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		<include refid="tIdLinkIdColumns" />
+		FROM t_id_link_id a
+		<include refid="tIdLinkIdJoins" />
+		<where>
+			<if test="tChannelName != null and tChannelName != ''">
+				AND ar.name like concat('%',#{tChannelName},'%')
+			</if>
+			<if test="tChannelDestName != null and tChannelDestName != ''">
+				AND ch.name like concat('%',#{tChannelDestName},'%')
+			</if>
+			<if test="linkType != null and linkType != ''">
+				AND a.link_type = #{linkType}
+			</if>
+			<if test="notUse != null and notUse != ''">
+				AND a.not_use = #{notUse}
+			</if>
+		</where>
+		order by a.create_date desc
+	</select>
+
+	<select id="findAllList" resultType="TIdLinkId">
+		SELECT
+		<include refid="tIdLinkIdColumns" />
+		FROM t_id_link_id a
+		<include refid="tIdLinkIdJoins" />
+		<where>
+			a.del_flag = #{DEL_FLAG_NORMAL}
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.update_date DESC
+			</otherwise>
+		</choose>
+	</select>
+
+
+	<insert id="insertLink" useGeneratedKeys="true" keyProperty="id"
+		parameterType="com.jeeplus.modules.settings.entity.PdfLink">
+		INSERT into pdf_link(id,name,nickname,org_id,not_use)
+		values(null,#{name},#{nickname},#{orgId},#{notUse})
+	</insert>
+
+	<insert id="insertLinkCheck" useGeneratedKeys="true" keyProperty="id"
+		parameterType="com.jeeplus.modules.settings.entity.TIdLinkId">
+		insert into pdf_link_check
+		(id,pdf_link_id,dev_type,dev_ids,ch_type,type_id,dev_type_link_id,ch_type_id,
+		dev_name,condition_id,conditions,level,station,
+		link_type_id,link_type_name,action_id,action,link_dev_ids,link_dev,status,not_use,air_id,ch_name,number)
+		values
+		(null,#{pdfLinkId},#{devType},#{devIds},	
+		#{chType},
+		#{typeId},#{devTypeLinkId},#{chTypeId},#{devName},#{conditionId},#{conditions},#{level},#{station},#{linkType},
+		#{linkTypeName},#{actionId},#{action},#{devLinkIds},#{linkDev},#{status},0,#{airId},#{chName},#{number})
+	</insert>
+
+	<insert id="insertPdfLinkTLink">
+		INSERT into pdf_link_t_link(check_id,t_link_id) values(#{checkId},#{tLinkId});
+	</insert>
+
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id"
+		parameterType="com.jeeplus.modules.settings.entity.TIdLinkId">
+		INSERT INTO t_id_link_id(
+		src_id,
+		dest_id,
+		level,
+		link_type,
+		param,
+		not_use,
+		del_flag,
+		create_by,
+		create_date,
+		update_by,
+		update_date,
+		ext_params
+		) VALUES (
+		#{srcId},
+		#{destId},
+		#{level},
+		#{linkType},
+		#{actionId},
+		#{notUse},
+		#{delFlag},
+		#{createBy.id},
+		#{createDate},
+		#{updateBy.id},
+		#{updateDate},
+		#{extParams}
+		)
+	</insert>
+
+	<update id="updateNotUse">
+		UPDATE
+		pdf_link SET
+		not_use = #{notUse}
+		WHERE
+		id = #{id};
+		
+		UPDATE
+		pdf_link_check SET
+		not_use = #{notUse}
+		WHERE pdf_link_id = #{id};
+		
+		UPDATE
+		t_id_link_id SET
+		not_use =  #{notUse}
+		WHERE id in (select l.t_link_id from pdf_link_check p 
+        inner join pdf_link_t_link l on p.id = l.check_id where p.pdf_link_id = #{id});		
+	</update>
+
+	<update id="updateCheckNotUse">
+		update
+		pdf_link_check
+		set not_use = #{notUse} where id = #{id}
+	</update>
+
+	<update id="updateTLinkNotUse">
+		update
+		t_id_link_id t
+		set t.not_use = #{notUse} where t.id in (
+		select * from
+		(select c.id from
+		pdf_link_check a left join pdf_link_t_link b on a.id = b.check_id
+		left join t_id_link_id c on b.t_link_id =
+		c.id
+		where
+		a.id = #{id}) a )
+	</update>
+
+	<select id="linkList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		id,
+		name,
+		nickname,
+		org_id orgId,
+		not_use notUse,
+		IFNULL((SELECT max(id) from
+		pdf_link_check where pdf_link_id = a.id),0) type
+		from
+		pdf_link a
+		where org_id = #{orgId}
+	</select>
+
+
+	<delete id="deleteLink">
+		DELETE from pdf_link where id = #{id}
+	</delete>
+
+	<select id="getChId" resultType="java.lang.String">
+		SELECT
+		b.id
+		from
+		t_device a
+		inner join t_channel b on b.dev_id = a.id
+		where
+		a.id =
+		#{devId} and ch_type = #{chType} and b.type_id = #{typeId}  ORDER BY ch_no desc limit 1
+	</select>
+
+	<select id="linkCheckList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		b.id checkId,
+		dev_type devType,
+		ch_type chType,
+		b.type_id typeId,
+		dev_ids devIds,
+		b.dev_name devName,
+		b.level,
+		b.station,
+		b.condition_id conditionId,
+		b.conditions,
+		dev_type_link_id
+		devTypeLinkId,
+		ch_type_id chTypeId,
+		link_type_id linkType,
+		b.link_type_name linkTypeName,
+		link_dev_ids devLinkIds,
+		b.link_dev linkDev,
+		action_id actionId,
+		b.action,
+		b.not_use notUse,
+		t.name devTypeName,
+		b.air_id airId,
+		b.ch_name chName,
+		b.number
+		from
+		pdf_link a
+		left join pdf_link_check b on a.id= b.pdf_link_id
+		left join pdf_link_t_link c on b.id =c.check_id
+		LEFT JOIN t_id_link_id d on d.id = c.t_link_id
+		left join t_code t on t.id = b.dev_type and t.type_id = 1
+		where
+		a.id = #{linkCheckId} and b.status = #{status} GROUP BY b.id
+	</select>
+
+	<select id="getCodeLinkList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		dev_type id,
+		type_id typeId,
+		name
+		from
+		pdf_code
+		where
+		status = 6 and	type_id != 1
+	</select>
+
+	<update id="update">
+		UPDATE t_id_link_id SET
+		src_id = #{srcId},
+		dest_id = #{destId},
+		link_type = #{linkType},
+		param =
+		#{param},
+		not_use = #{notUse},
+		update_by = #{updateBy.id},
+		update_date = #{updateDate}
+		WHERE id = #{id}
+	</update>
+
+	<!-- 更改启用禁用 -->
+	<update id="saveUse">
+		update
+		t_id_link_id
+		SET not_use = #{notUse}
+		WHERE id = #{id}
+	</update>
+
+	<!--物理删除 -->
+	<update id="delete">
+		DELETE FROM t_id_link_id
+		WHERE id = #{id}
+	</update>
+
+	<!--逻辑删除 -->
+	<update id="deleteByLogic">
+		UPDATE t_id_link_id SET
+		del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+
+
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="TIdLinkId" statementType="STATEMENT">
+		select * FROM t_id_link_id where
+		${propertyName} = '${value}'
+	</select>
+
+	<!-- 联动区域底下的 通道显示 -->
+	<select id="findAreaList" resultType="Area">
+		(SELECT
+		concat(a.id) as id ,a.name as name,concat(a.parent_id) as "parent.id",a.type as type
+		from t_org a
+		where
+		a.parent_ids like concat('%','7579','%') or a.id = '7579')
+		UNION ALL
+		(select concat(b.id) as id, b.name as
+		name,concat(b.logic_org_id) as "parent.id",b.del_flag as type from
+		t_channel b INNER JOIN t_org c on b.logic_org_id =
+		c.id
+		<where>
+			c.type in(5,6) and (c.parent_ids like concat('%','7579','%') or c.id = '7579')
+			<if test="name != null and name != ''">
+				and b.name like concat('%',#{name},'%')
+			</if>
+		</where>
+		)
+	</select>
+
+	<!-- 新加的 -->
+	<select id="getCodeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT id,name from t_code where id in (162,168,169,172) and type_id = 1
+	</select>
+
+	<select id="getDeviceListByType" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(a.id) id,a.addr,a.name,b.mac from t_device a left join
+		t_device_detail b on a.id = b.id
+		where org_id = #{orgId} and dev_type = #{devType} 
+	</select>
+
+	<select id="getCodeTypeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT id,name from t_code where type_id = 5 and id in (2,6,8,9)
+	</select>
+
+	<select id="getVideoList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT IFNULL(addr,'') addr,concat(id) id,name,channel_type channelType,ch_no chNo,outer_id outerId from
+		t_channel where type_id = 9 and ch_type = 1 and
+		logic_org_id = #{orgId}
+	</select>
+	<!-- 预置位集合 -->
+	<select id="getPositionList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select dev_type id ,name from pdf_code where status = 5
+	</select>
+
+	<select id="getPdfCodeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id,dev_type devType,name,ch_type chType,type_id typeId, value from
+		pdf_code where dev_type = #{devType} and status = #{status}
+	</select>
+	<!-- 被联动通道空调等 -->
+	<select id="linkChannelist" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(c.id) id,ch_type chType,c.type_id typeId,c.addr,c.name from t_channel
+		c left join t_device d on d.id = c.dev_id
+		where c.channel_type =#{chType} and c.type_id = #{typeId} and d.org_id =#{orgId}
+	</select>
+
+	<select id="pdfCodeParam" resultType="com.jeeplus.common.persistence.MapEntity">
+		select dev_type id, name from pdf_code where status =#{status}
+	</select>
+	
+	<!-- 删除所有设备联动 -->
+	<delete id="deleteLinkCheck">
+		
+		delete from t_id_link_id where id in (select t_link_id from pdf_link_check a inner JOIN pdf_link_t_link
+		b on a.id = b.check_id	where pdf_link_id = #{pdfLinkId} and status = #{status});
+		
+		delete from
+		pdf_link_t_link where check_id in (SELECT a.id from pdf_link_check a where a.status = #{status} and
+		a.pdf_link_id =	#{pdfLinkId});
+		
+		delete from pdf_link_check where pdf_link_id =#{pdfLinkId} and status = #{status};
+		
+	</delete>
+
+	<!-- 删除所有设备联动 -->
+	<delete id="deleteLinkCheckByCheckIds">
+	
+		delete from t_id_link_id where
+		id in
+		(select ll.t_link_id from pdf_link_check l inner join pdf_link_t_link ll
+		on ll.check_id = l.id where pdf_link_id = #{pdfLinkId} and status = #{status});
+
+		delete from pdf_link_t_link where
+		check_id in (select id from pdf_link_check where pdf_link_id = #{pdfLinkId} and status = #{status} );
+
+	
+		
+		delete from pdf_link_check where pdf_link_id = #{pdfLinkId} and status = #{status};
+	</delete>
+
+	<select id="getUserList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT concat(id) id,name,mobile from sys_user
+	</select>
+
+	<select id="orgNameBypdfLinkId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select b.name orgName,a.name linkName from pdf_link a inner join
+		t_org b on a.org_id = b.id
+		where a.id = #{pdfLinkId}
+	</select>
+
+	<select id="getLinkCheck" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT c.name orgName,b.name linkName,case when a.status = 0 then '控制联动'
+		else '通知联动' end statusName from pdf_link_check a INNER JOIN pdf_link b on a.pdf_link_id = b.id
+		LEFT JOIN t_org c on
+		c.id = b.org_id
+		where a.id = #{checkId}
+	</select>
+
+
+</mapper>

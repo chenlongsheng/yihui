@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.FireFightingDao">
+
+    <select id="countOnline" parameterType="map" resultType="int">
+        select count(*) count from (select ch_id,history_value,history_time from t_history_data_final where ch_id in
+        (select d.id from pdf_dev_code a
+          left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+          left join t_org c on b.org_id = c.id
+          left join t_channel d on d.dev_id = b.id
+          where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+          and a.id=#{type} and d.ch_type=4 and d.type_id=2) and history_time in
+         (select max(history_time) from t_history_data_final where ch_id in
+         (select d.id from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         left join t_channel d on d.dev_id = b.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+         and a.id=#{type} and d.ch_type=4 and d.type_id=2) GROUP BY ch_id)
+         <if test="value !=null and value !=''">
+             and history_value = 1
+         </if>
+          ) h
+    </select>
+
+    <select id="countOnline1" parameterType="map" resultType="int">
+        select count(*) count from (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_device_detail d on b.id = d.id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+         and a.id=#{type}
+        <if test="value !=null and value !=''">
+            and d.online=1
+        </if>
+        ) aa
+    </select>
+
+    <select id="countDayAlarm" parameterType="map" resultType="int">
+        select count(*) from pdf_order a left join t_org b on a.alarm_addr = b.id where (b.id = #{orgId} or b.parent_ids like '%${orgId}%') and
+        DATE_FORMAT(a.alarm_time,'%Y/%m/%d') = DATE_FORMAT(#{time},'%Y/%m/%d') and a.dev_id in
+         (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+    </select>
+
+    <select id="countMonthAlarm" parameterType="map" resultType="int">
+        select count(*) from pdf_order a left join t_org b on a.alarm_addr = b.id where b.code like concat(#{code},'%')  and
+        DATE_FORMAT(a.alarm_time,'%Y/%m') = DATE_FORMAT(#{time},'%Y/%m') and a.dev_id in
+        (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id
+        where b.code like concat(#{code},'%') and a.id=#{type})
+    </select>
+
+    <select id="getOutlineTop10" parameterType="map" resultType="map">
+         select cc.*,round(cc.online/cc.count*100,0) rate from (select aa.name, aa.org_id,aa.count,(case when bb.online is not null then bb.online else 0 end) online from
+        (select name, org_id, count(*) count from(select org.name, v.org_id, m.ch_id,m.history_value,m.history_time from t_history_data_final m left join t_channel n
+        on m.ch_id =n.id left join t_device v on n.dev_id = v.id LEFT JOIN t_org org on org.id = v.org_id where m.ch_id in
+        (select d.id from pdf_dev_code a
+          left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+          left join t_org c on b.org_id = c.id
+          left join t_channel d on d.dev_id = b.id
+          where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+          and a.id=#{type} and d.ch_type=4 and d.type_id=2 and c.type=5) and m.history_time in
+         (select max(history_time) from t_history_data_final where ch_id in
+         (select d.id from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         left join t_channel d on d.dev_id = b.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+         and a.id=#{type} and d.ch_type=4 and d.type_id=2 and c.type=5) GROUP BY ch_id))h  GROUP BY org_id) aa LEFT JOIN
+        (select org_id, count(*) online from(select v.org_id, m.ch_id,m.history_value,m.history_time from t_history_data_final m left join t_channel n
+          on m.ch_id =n.id left join t_device v on n.dev_id = v.id where m.ch_id in
+        (select d.id from pdf_dev_code a
+          left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+          left join t_org c on b.org_id = c.id
+          left join t_channel d on d.dev_id = b.id
+          where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+          and a.id=#{type} and d.ch_type=4 and d.type_id=2 and c.type=5) and m.history_time in
+         (select max(history_time) from t_history_data_final where ch_id in
+         (select d.id from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id
+         left join t_channel d on d.dev_id = b.id
+         where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+         and a.id=#{type} and d.ch_type=4 and d.type_id=2 and c.type=5) GROUP BY ch_id))h where history_value=0 GROUP BY org_id) bb on aa.org_id = bb.org_id)cc ORDER BY rate desc LIMIT 0,10
+    </select>
+
+    <select id="getOutlineTp101" parameterType="map" resultType="map">
+        select round(sum(case when aa.online=0 then 1 else 0 end)/count(*)*100,0) rate,count(*), sum(case when aa.online=0 then 1 else 0 end),orgId,name from
+        (select b.id,d.online,o.id orgId,o.name from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+		left join t_device_detail d on b.id = d.id
+        left join t_org c on b.org_id = c.id
+		left join t_org o on b.org_id=o.id
+		where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})aa group by aa.orgId order by rate desc limit 0,10
+    </select>
+
+    <select id="countElectric" parameterType="map" resultType="map">
+        select count(*) count,  sum(case when e.history_value &gt;= #{start1} and e.history_value &lt; #{end1} then 1 else 0 end)  count1,
+        sum(case when e.history_value &gt;= #{start2} and e.history_value &lt; #{end2} then 1 else 0 end)  count2,
+        sum(case when e.history_value &gt;= #{start3} and e.history_value &lt;=#{end3} then 1 else 0 end)  count3
+        from (select a.*,b.name from t_history_data_final a  LEFT JOIN t_channel b on a.ch_id = b.id
+        where b.dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id
+        where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type}) and b.ch_type =108 and b.type_id = 3) e
+    </select>
+    
+    <select id="alarmTop10" parameterType="map" resultType="map">
+        select b.name,count(*) count from pdf_order a left join t_org b on a.alarm_addr = b.id where (b.id = #{orgId} or b.parent_ids like '%${orgId}%') and
+        DATE_FORMAT(a.alarm_time,'%Y/%m/%d') &gt;= DATE_FORMAT(#{startDate},'%Y/%m/%d') and DATE_FORMAT(a.alarm_time,'%Y/%m/%d') &lt;= DATE_FORMAT(#{endDate},'%Y/%m/%d')  and a.dev_id in
+        (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id
+        where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type}) GROUP BY b.id ORDER BY count desc LIMIT 0,10
+    </select>
+
+
+    <select id="wiretemperature" parameterType="map" resultType="map">
+        select max(history_value) max,min(history_value) min from (select *from t_history_data_final where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId})) aa
+    </select>
+
+    <select id="wiretemperature2" parameterType="map" resultType="map">
+		select max(history_value) max,min(history_value) min 
+		from 
+		( 
+			select * from t_history_data_final 
+			where ch_id in ( 
+				select tc.id 
+				from t_channel tc 
+				inner join t_org o 
+				on tc.logic_org_id = o.id
+				where o.code like concat(#{code},'%') and ch_type = #{chType} and type_id = #{typeId}
+			) 
+		) aa
+    </select> 	
+ 	
+ 	
+    
+    <select id="countHour" parameterType="map" resultType="map">
+        SELECT HOUR(history_time) as Hour,(sum(history_value)/#{days}) as Count
+        FROM t_history_data_final
+        WHERE ch_id in
+        (select d.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id
+        left join t_channel d on d.dev_id = b.id
+        where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%')
+        and a.id=#{type} and d.ch_type=#{chType} and d.type_id=#{typeId}) and
+        DATE_FORMAT(history_time,'%Y/%m/%d %H:%i:%s') &gt;= DATE_FORMAT(#{startDate},'%Y/%m/%d')
+        AND DATE_FORMAT(history_time,'%Y/%m/%d %H:%i:%s') &lt;= DATE_FORMAT(#{endDate},'%Y/%m/%d')
+        GROUP BY HOUR(history_time) ORDER BY Hour(history_time);
+    </select>
+
+    <select id="residueTop10" parameterType="map" resultType="map">
+        (select a.history_value value,d.name from t_history_data_final a left join t_channel b on a.ch_id=b.id
+        left join t_device c on b.dev_id=c.id left join t_org d on c.org_id=d.id where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) order by history_value desc limit 0,10)
+    </select>
+
+    <select id="countAlarmByType" parameterType="map" resultType="map">
+        select d.name,count(*) count from t_alarm_log a LEFT JOIN t_channel b on a.ch_id = b.id
+		left join t_device g on b.dev_id=g.id
+        LEFT JOIN t_org c on g.org_id = c.id LEFT JOIN t_code d on b.ch_type = d.id and b.type_id = d.type_id
+        where (c.id =#{orgId} or c.parent_ids like '%${orgId}%') and ((d.id = 10009 and d.type_id=3)
+        or (d.id = 100010 and d.type_id=3) or (d.id = 100011 and d.type_id=3)) GROUP BY d.id,d.type_id
+    </select>
+
+    <select id="countTemperature" parameterType="map" resultType="map">
+        select count(*) count,  sum(case when e.history_value &gt;= #{start1} and e.history_value &lt; #{end1} then 1 else 0 end)  count1,
+        sum(case when e.history_value &gt;= #{start2} and e.history_value &lt; #{end2} then 1 else 0 end)  count2,
+        sum(case when e.history_value &gt;= #{start3} and e.history_value &lt;=#{end3} then 1 else 0 end)  count3
+        from (select a.*,b.name from t_history_data_final a  LEFT JOIN t_channel b on a.ch_id = b.id
+        where b.dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id
+        where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type}) and b.ch_type =#{chType} and b.type_id = #{typeId}) e
+    </select>
+    
+    <select id="temperatureTop5" parameterType="map" resultType="map">
+         (select AVG(a.history_value) value,d.name from t_history_data_final a left join t_channel b on a.ch_id=b.id
+        left join t_device c on b.dev_id=c.id left join t_org d on c.org_id=d.id where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId}) GROUP BY d.id order by value desc limit 0,5)
+    </select>
+
+    <select id="waterGage" parameterType="map" resultType="map">
+        select max(history_value) max,min(history_value) min from (select *from t_history_data_final where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo})) aa
+    </select>
+
+    <select id="waterGageTop5" parameterType="map" resultType="map">
+        (select AVG(a.history_value) value,d.name from t_history_data_final a left join t_channel b on a.ch_id=b.id
+        left join t_device c on b.dev_id=c.id left join t_org d on c.org_id=d.id where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo}) GROUP BY d.id order by value asc limit 0,5)
+    </select>
+
+    <select id="devGage" parameterType="map" resultType="map">
+        select count(*) count,  sum(case when e.history_value &gt;= #{start1} and e.history_value &lt; #{end1} then 1 else 0 end)  count1,
+        sum(case when e.history_value &gt;= #{start2} and e.history_value &lt; #{end2} then 1 else 0 end)  count2,
+        sum(case when e.history_value &gt;= #{start3} and e.history_value &lt;=#{end3} then 1 else 0 end)  count3
+        from  (select *from t_history_data_final where history_time in
+        (select max(history_time) from t_history_data_final where ch_id in(select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo}) GROUP BY ch_id)
+        and ch_id in (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        and ch_type = #{chType} and type_id=#{typeId} and ch_no=#{chNo}))  e
+    </select>
+
+</mapper>

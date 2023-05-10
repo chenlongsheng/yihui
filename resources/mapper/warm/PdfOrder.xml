@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.warm.dao.PdfOrderDao">
+
+
+    <resultMap id="OrderMap" type="map">
+        <id property="id" column="id" javaType="String"/>
+        <id property="sendOrderUser" column="sendOrderUser" javaType="String"/>
+        <id property="alarmAddr" column="alarmAddr" javaType="String"/>
+        <id property="state" column="state" javaType="Integer"/>
+    </resultMap>
+
+    <select id="findOrderById" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select a.id,
+               a.dev_id                                       devId,
+               a.alarm_type                                   alarmType,
+               a.prec,
+               a.alarm_level                                  alarmLevel,
+               DATE_FORMAT(a.alarm_time, '%Y-%m-%d %H:%i:%s') alarmTime,
+               a.alarm_addr                                   alarmAddr,
+               a.send_order_user                              sendOrderUser,
+               a.confirm_user                                 confirmUser,
+               a.suggestion,
+               a.principal,
+               a.state,
+               a.alarm_cacel_time                             alarmCancelTime,
+               b.name                                         orgName,
+               c.name                                         devName,
+               d.name                                         devTypeName,
+               e.name                                         sendName,
+               e.phone
+        from pdf_order a
+                 left join t_org b on a.alarm_addr = b.id
+                 left join t_device c on a.dev_id = c.id
+                 left join t_code d on c.dev_type = d.id and c.type_id = d.type_id
+                 left join sys_user e on a.send_order_user = e.id
+        where a.id = #{id}
+    </select>
+
+    <!-- 实时报警 -->
+    <select id="findRealOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select * from
+        (select
+        concat(o.id) orgId,
+        CONCAT(a.id) id,
+        CONCAT(b.id) chId,
+        b.ch_no chNo,
+        DATE_FORMAT(max(a.real_time),'%Y/%m/%d %H:%i:%s') alarmTime,
+        0 alarmType,
+        tdd.`online`,
+        d.name devTypeName,
+        CONCAT(tc.type_name,'报警') prec,
+        po.id orderId,
+        IFNULL(c.addr,'') deviceAddr,
+        o.id alarmAddr,
+        1 alarmLevel,
+        case when d.id in (131,178) then CONCAT(IFNULL(b.addr,''),b.name) ELSE
+        CONCAT(IFNULL(c.addr,''),c.name) end
+        devName,
+        d.id typeId,
+        u.name sendName,
+        sys.user_id sendOrderUser,
+        o.`name` orgName,
+        CONCAT(c.id) devId,
+        1 alarmNumber,
+        -1 state,
+        0 isDispatch
+        from
+        t_real_data a
+        inner join t_channel b on a.id = b.id
+        inner JOIN t_device c on c.id = b.dev_id
+        left join t_device_detail tdd on tdd.id = c.id
+        LEFT JOIN t_code d on d.id = c.dev_type and d.type_id = 1
+        left join t_code t on t.id = b.ch_type and t.type_id = b.type_id
+        left join t_code_type tc on tc.id = t.type_id
+        LEFT JOIN t_org o on c.org_id = o.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = o.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user u on u.id = sys.user_id
+        left join pdf_order po on po.order_id = a.id
+        where
+        sys.user_id = #{userId} and tdd.online = 0
+        <if test="alarmType ==1">
+            and tdd.online &lt;0
+        </if>
+        GROUP BY c.id
+
+        union all
+
+        select
+        concat(o.id) orgId,
+        CONCAT(a.id) id,
+        CONCAT(b.id) chId,
+        b.ch_no chNo,
+        DATE_FORMAT(max(a.occur_time),'%Y/%m/%d %H:%i:%s') alarmTime,
+        1 alarmType,
+        1 online,
+        d.name devTypeName,
+        CONCAT(tc.type_name,'报警') prec,
+        po.id orderId,
+        IFNULL(c.addr,'') deviceAddr,
+        o.id alarmAddr,
+        a.alarm_level alarmLevel,
+        case when d.id in (131,178) then CONCAT(IFNULL(b.addr,''),b.name) ELSE
+        CONCAT(IFNULL(c.addr,''),c.name) end
+        devName,
+        d.id typeId,
+        u.name sendName,
+        sys.user_id sendOrderUser,
+        o.`name` orgName,
+        CONCAT(c.id) devId,
+        alarmNumber,
+        case when a.status >= 1 then 1 else 0 end state,
+        case when po.state >= 2 then 1 else 0 end isDispatch
+        from
+        (select * ,COUNT(*) alarmNumber from (select * FROM t_alarm_log where status is null HAVING 1 ORDER BY
+        occur_time desc ) j GROUP BY j.ch_id) a
+        inner join t_channel b on a.ch_id = b.id
+        inner JOIN t_device c on c.id = b.dev_id
+        left join t_device_detail tdd on tdd.id = c.id
+        LEFT JOIN t_code d on d.id = c.dev_type and d.type_id = 1
+        left join t_code t on t.id = b.ch_type and t.type_id = b.type_id
+        left join t_code_type tc on tc.id = t.type_id
+        LEFT JOIN t_org o on c.org_id = o.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = o.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user u on u.id = sys.user_id
+        left join pdf_order po on po.order_id = a.id
+        where
+        sys.user_id = #{userId}
+        <if test="alarmType ==0">
+            and tdd.online &lt;0
+        </if>
+        GROUP BY b.id) m order by alarmTime desc
+    </select>
+
+    <!-- 报警 -->
+    <select id="findOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select
+        CONCAT(a.id) id,
+        CONCAT(b.id) chId,
+        b.ch_no chNo,
+        po.id orderId,
+        DATE_FORMAT(max(a.occur_time),'%y/%m/%d %H:%i:%s') alarmTime,
+        case when tc.id = 2 then 0 else 1 end alarmType,
+        tdd.`online`,
+        d.name devTypeName,
+        CONCAT(tc.type_name,'报警') prec,
+        po.id sendId,
+        o.id alarmAddr,
+        a.alarm_level alarmLevel,
+        case when d.id in (131,178) then CONCAT(IFNULL(b.addr,'')) ELSE
+        CONCAT(IFNULL(c.addr,'')) end devName,
+        d.id typeId,
+        u.name sendName,
+        sys.user_id sendOrderUser,
+        o.`name` orgName,
+        CONCAT(c.id) devId,
+        alarmNumber,
+        case when a.status >= 1 then 1 else 0 end state,
+        case when po.state >= 2 then 1 else 0 end isDispatch
+        from
+        (select * ,COUNT(*) alarmNumber from (select * FROM t_alarm_log HAVING 1 ORDER BY occur_time desc ) j GROUP BY
+        j.ch_id) a
+        inner join t_channel b on a.ch_id = b.id
+        inner JOIN t_device c on c.id = b.dev_id
+        left join t_device_detail tdd on tdd.id = c.id
+        LEFT JOIN t_code d on d.id = c.dev_type and d.type_id = 1
+        left join t_code t on t.id = b.ch_type and t.type_id = b.type_id
+        left join t_code_type tc on tc.id = t.type_id
+        LEFT JOIN t_org o on c.org_id = o.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = o.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user u on u.id = sys.user_id
+        left join pdf_order po on po.order_id = a.id
+        <where>
+            <if test="userId != null and userId != ''">
+                and sys.user_id = #{userId}
+            </if>
+            <if test="id != null and id != ''">
+                and a.id = #{id}
+            </if>
+            <if test="alarmAddr != null and alarmAddr != ''">
+                and (o.parent_ids like concat('%',#{alarmAddr},'%') or o.id = #{alarmAddr})
+            </if>
+            <if test="devType != null and devType != ''">
+                and c.dev_type = #{devType} and c.type_id = 1
+            </if>
+            <if test="devName != null and devName != ''">
+                and c.name = #{devName}
+            </if>
+            <if test="alarmLevel != null and alarmLevel != ''">
+                and a.alarm_level = #{alarmLevel}
+            </if>
+            <if test="alarmType != null and alarmType != '' and alarmType == 0">
+                and tc.id = 2
+            </if>
+            <if test="alarmType != null and alarmType != '' and alarmType == 1">
+                and tc.id != 2
+            </if>
+            <if test="alarmStartTime != null and alarmStartTime != ''">
+                and a.occur_time &gt;= DATE_FORMAT(#{alarmStartTime},'%Y-%m-%d')
+            </if>
+            <if test="alarmEndTime != null and alarmEndTime != ''">
+                and a.occur_time &lt;= DATE_FORMAT(#{alarmEndTime},'%Y-%m-%d 23:59:59')
+            </if>
+            <if test="state != null and state == 1 ">
+                and a.status >= 1
+            </if>
+            <if test="isDispatch ==null and state == 0 ">
+                and a.status is null
+            </if>
+            <if test="isDispatch ==1 ">
+                and a.status in (2,3)
+            </if>
+            <if test="isDispatch == 0 ">
+                and (a.status is null or a.status =1)
+            </if>
+        </where>
+        GROUP BY b.id
+        order by a.occur_time DESC
+    </select>
+
+    <update id="updateAlarmLog">
+        update
+            t_alarm_log
+        set status = #{status}
+        where ch_id = #{chId}
+    </update>
+
+    <!-- 工单 -->
+    <select id="findSendOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select
+        CONCAT(a.id) orderId,
+        CONCAT(a.id) id,
+        CONCAT(a.dev_id) devId,
+        a.alarm_type alarmType,
+        a.prec,
+        a.alarm_level alarmLevel,
+        d.id typeId,
+        DATE_FORMAT(a.alarm_time,'%Y-%m-%d %H:%i:%s') alarmTime,
+        b.name alarmAddr,
+        case when main_type = 0 and state in (2,3,4) then 0 end mainTpye,
+        a.send_order_user sendOrderUser,
+        a.confirm_user confirmUser,
+        a.suggestion,a.principal,
+        case when state = 4 and a.main_type = 1 then 6 else a.state end state,
+        a.alarm_cacel_time alarmCancelTime,
+        b.name orgName,
+        c.name devName,
+        d.name devTypeName,
+        e.name sendName ,
+        e.mobile phone,
+        a.alarm_source alarmSource
+        from
+        pdf_order a
+        inner join t_device c on a.dev_id = c.id
+        left join t_code d on c.dev_type = d.id and c.type_id = d.type_id
+        left join t_org b on a.alarm_addr = b.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = b.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user e on sys.user_id = e.id
+        <where>
+            a.state &gt;=2 and e.id = #{userId}
+            <if test="id != null and id != ''">
+                and a.order_id = #{id}
+            </if>
+            <if test="orderId != null and orderId != ''">
+                and a.id = #{orderId}
+            </if>
+            <if test="devName != null and devName != ''">
+                and c.name = #{devName}
+            </if>
+            <if test="devType != null and devType != ''">
+                and d.id = #{devType} and d.type_id = 1
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                and alarm_type = #{alarmType}
+            </if>
+            <if test="alarmLevel != null and alarmLevel != ''">
+                and a.alarm_level = #{alarmLevel}
+            </if>
+            <if test="confirmUser != null and confirmUser != ''">
+                and a.confirm_user = #{confirmUser}
+            </if>
+            <if test="alarmStartTime != null and alarmStartTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &gt; DATE_FORMAT(#{alarmStartTime},'%Y-%m-%d')
+            </if>
+            <if test="alarmEndTime != null and alarmEndTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &lt; DATE_FORMAT(#{alarmEndTime},'%Y-%m-%d')
+            </if>
+            <if test="sendOrderUser != null and sendOrderUser != ''">
+                and a.send_order_user in (select id from sys_user where name like CONCAT('%',#{sendOrderUser},'%'))
+            </if>
+            <if test="state != null and state != ''">
+                and a.state = #{state}
+            </if>
+            <if test="alarmAddr != null and alarmAddr != ''">
+                and (b.parent_ids like concat('%',#{alarmAddr},'%') or b.id = #{alarmAddr})
+            </if>
+            <if test="pdfUser != null and pdfUser != ''">
+                and a.principal like CONCAT('%',(select max(id) id from pdf_user where name like
+                concat('%',#{pdfUser},'%')),'%')
+            </if>
+            <if test="principal != null and principal != ''">
+                and a.principal like CONCAT('%',(select max(id) id from pdf_maintenance_detail where contacts like
+                concat('%',#{principal},'%')),'%')
+            </if>
+        </where>
+        order by (case when a.state =5 then 1 else 0 end),a.alarm_time desc
+    </select>
+
+    <!-- 报警次数详情 -->
+    <select id="alarmCountDetail" resultType="com.jeeplus.common.persistence.MapEntity">
+        select DATE_FORMAT(occur_time, '%Y/%m/%d %H:%i:%s') alarmTime,
+               IFNULL(reason, '无')                         reason,
+               a.id                                         sendId
+        from t_alarm_log o
+                 left join pdf_order a on o.id = a.order_id
+        where o.ch_id = #{chId}
+        order by occur_time desc
+    </select>
+
+    <select id="getOrgByName" parameterType="com.jeeplus.modules.settings.entity.TOrg"
+            resultType="com.jeeplus.modules.settings.entity.TOrg">
+        select id from t_org
+        <where>
+            <if test="id != null and id != ''">
+                and id = #{id}
+            </if>
+            <if test="name != null and name != ''">
+                and name like '%${name}%'
+            </if>
+            <if test="1==1">
+                and type &lt; 5
+            </if>
+        </where>
+    </select>
+
+    <select id="getPdfByOrg" parameterType="com.jeeplus.modules.settings.entity.TOrg"
+            resultType="com.jeeplus.modules.settings.entity.TOrg">
+        select id
+        from t_org
+        where (parent_ids like '%${id}%' or id = #{id})
+          and type = 5
+    </select>
+
+    <insert id="addOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" useGeneratedKeys="true"
+            keyProperty="id" keyColumn="id">
+        insert into pdf_order
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="alarmType != null and alarmType != ''">
+                alarm_type,
+            </if>
+            <if test="alarmTime != null and alarmTime != ''">
+                alarm_time,
+            </if>
+            <if test="devId != null and devId != ''">
+                dev_id,
+            </if>
+            <if test="prec != null and prec != ''">
+                prec,
+            </if>
+            <if test="alarmLevel != null and alarmLevel != ''">
+                alarm_level,
+            </if>
+            <if test="alarmAddr != null and alarmAddr != ''">
+                alarm_addr,
+            </if>
+            <if test="principal != null and principal != ''">
+                principal,
+            </if>
+            <if test="suggestion != null and suggestion != ''">
+                suggestion,
+            </if>
+            <if test="sendOrderUser != null and sendOrderUser != ''">
+                send_order_user,
+            </if>
+            <if test="confirmUser != null and confirmUser != ''">
+                confirm_user,
+            </if>
+            <if test="alarmSource != null and alarmSource != ''">
+                alarm_source,
+            </if>
+            <if test="reason != null and reason != ''">
+                reason,
+            </if>
+            <if test="typeId != null and typeId != ''">
+                type_id,
+            </if>
+            <if test="orderId != null and orderId != ''">
+                order_id,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="alarmType != null and alarmType != ''">
+                #{alarmType},
+            </if>
+            <if test="alarmTime != null and alarmTime != ''">
+                #{alarmTime},
+            </if>
+            <if test="devId != null and devId != ''">
+                #{devId},
+            </if>
+            <if test="prec != null and prec != ''">
+                #{prec},
+            </if>
+            <if test="alarmLevel != null and alarmLevel != ''">
+                #{alarmLevel},
+            </if>
+            <if test="alarmAddr != null and alarmAddr != ''">
+                #{alarmAddr},
+            </if>
+            <if test="principal != null and principal != ''">
+                #{principal},
+            </if>
+            <if test="suggestion != null and suggestion != ''">
+                #{suggestion},
+            </if>
+            <if test="sendOrderUser != null and sendOrderUser != ''">
+                #{sendOrderUser},
+            </if>
+            <if test="confirmUser != null and confirmUser != ''">
+                #{confirmUser},
+            </if>
+            <if test="alarmSource != null and alarmSource != ''">
+                #{alarmSource},
+            </if>
+            <if test="reason != null and reason != ''">
+                #{reason},
+            </if>
+            <if test="typeId != null and typeId != ''">
+                #{typeId},
+            </if>
+            <if test="orderId != null and orderId != ''">
+                #{orderId},
+            </if>
+        </trim>
+    </insert>
+
+    <delete id="deleteOrderByIds">
+        delete from pdf_order where id IN
+        <foreach collection="array" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+    <select id="getUserByIds" resultType="com.jeeplus.modules.sys.entity.User">
+        SELECT concat(id) id,name,mobile phone from sys_user where id in
+        <foreach collection="array" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <update id="updateOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder">
+        UPDATE pdf_order
+        <set>
+            <if test="state != null and state != ''">
+                state = #{state},
+            </if>
+            <if test="principal != null and principal != ''">
+                principal = #{principal},
+            </if>
+            <if test="sendOrderUser != null and sendOrderUser != ''">
+                send_order_user = #{sendOrderUser},
+            </if>
+            <if test="suggestion != null and suggestion != ''">
+                suggestion = #{suggestion},
+            </if>
+            <if test="reason != null and reason != ''">
+                reason = #{reason},
+            </if>
+            <if test="orderId != null and orderId != ''">
+                order_id = #{orderId},
+            </if>
+            <if test="mainType != null and mainType != ''">
+                main_type = #{mainType},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="getDevById" parameterType="String" resultType="com.jeeplus.modules.settings.entity.TDevice">
+        select org_id orgId
+        from t_device
+        where id = #{id}
+    </select>
+
+    <select id="getFirstData" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select f.state                                        state1,
+               f.date,
+               a.id,
+               a.dev_id                                       devId,
+               a.alarm_type                                   alarmType,
+               a.prec,
+               a.alarm_level                                  alarmLevel,
+               DATE_FORMAT(a.alarm_time, '%Y-%m-%d %H:%i:%s') alarmTime,
+               a.alarm_addr                                   alarmAddr,
+               a.send_order_user                              sendOrderUser,
+               a.confirm_user                                 confirmUser,
+               a.suggestion,
+               a.principal,
+               a.state,
+               a.alarm_cacel_time                             alarmCancelTime,
+               b.name                                         orgName,
+               c.name                                         devName,
+               d.name                                         devTypeName,
+               e.name                                         sendName,
+               e.phone
+        from pdf_order a
+                 left join t_org b on a.alarm_addr = b.id
+                 left join t_device c on a.dev_id = c.id
+                 left join t_code d on c.dev_type = d.id and c.type_id = d.type_id
+                 left join sys_user e on a.send_order_user = e.id
+                 LEFT JOIN pdf_order_recorder f on a.id = f.order_id
+        where a.principal like '%${principal}%'
+          and f.user_id = #{principal}
+          and a.state !=5 and a.state = #{state}
+          and (b.id = #{alarmAddr}
+           or
+            b.parent_ids like '%${alarmAddr}%')
+        group by id
+        order by a.alarm_time desc
+    </select>
+
+    <select id="getUnRecieve" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select f.state                                        state1,
+               f.date,
+               a.id,
+               a.dev_id                                       devId,
+               a.alarm_type                                   alarmType,
+               a.prec,
+               a.alarm_level                                  alarmLevel,
+               DATE_FORMAT(a.alarm_time, '%Y-%m-%d %H:%i:%s') alarmTime,
+               a.alarm_addr                                   alarmAddr,
+               a.send_order_user                              sendOrderUser,
+               a.confirm_user                                 confirmUser,
+               a.suggestion,
+               a.principal,
+               a.state,
+               a.alarm_cacel_time                             alarmCancelTime,
+               b.name                                         orgName,
+               c.name                                         devName,
+               d.name                                         devTypeName,
+               e.name                                         sendName,
+               e.phone
+        from pdf_order a
+                 left join t_org b on a.alarm_addr = b.id
+                 left join t_device c on a.dev_id = c.id
+                 left join t_code d on c.dev_type = d.id and c.type_id = d.type_id
+                 left join sys_user e on a.send_order_user = e.id
+                 LEFT JOIN pdf_order_recorder f on a.id = f.order_id
+        where a.principal like '%${principal}%'
+          and a.state = 2
+          and (b.id = #{alarmAddr} or b.parent_ids like '%${alarmAddr}%')
+        group by id
+        ORDER BY f.date desc
+    </select>
+
+    <select id="getHistoryOrder" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="OrderMap">
+        select a.id,
+               a.dev_id                                       devId,
+               a.alarm_type                                   alarmType,
+               a.prec,
+               a.alarm_level                                  alarmLevel,
+               DATE_FORMAT(a.alarm_time, '%Y-%m-%d %H:%i:%s') alarmTime,
+               a.alarm_addr                                   alarmAddr,
+               a.send_order_user                              sendOrderUser,
+               a.confirm_user                                 confirmUser,
+               a.suggestion,
+               a.principal,
+               a.state,
+               a.alarm_cacel_time                             alarmCancelTime,
+               b.name                                         orgName,
+               c.name                                         devName,
+               d.name                                         devTypeName,
+               e.name                                         sendName,
+               e.phone
+        from pdf_order a
+                 left join t_org b on a.alarm_addr = b.id
+                 left join t_device c on a.dev_id = c.id
+                 left join t_code d on c.dev_type = d.id and c.type_id = d.type_id
+                 left join sys_user e on a.send_order_user = e.id
+        where a.principal like '%${principal}%'
+          and a.state = 5
+          and (b.id = #{alarmAddr} or b.parent_ids
+            like '%${alarmAddr}%')
+        group by id
+        ORDER BY a.alarm_cacel_time desc
+    </select>
+
+    <resultMap id="devMap" type="map">
+        <id property="id" column="id" javaType="String"/>
+    </resultMap>
+
+    <select id="getDevByOrg" parameterType="com.jeeplus.modules.settings.entity.TOrg" resultMap="devMap">
+        select CONCAT(a.id)       id,
+               a.name,
+               IFNULL(a.addr, '') addr
+        from t_device a
+                 LEFT JOIN t_org b on a.org_id = b.id
+        where (b.id = #{id} or b.parent_ids like '%${id}%')
+          and a.dev_type = #{type}
+    </select>
+
+    <select id="getSendUserList" parameterType="Map" resultMap="devMap">
+        select a.id,
+               a.name
+        from sys_user a
+                 left join t_org b on a.org_id = b.id
+                 left join sys_user_role c on a.id = c.user_id
+                 left join sys_role d on c.role_id = d.id
+        where b.id = #{orgId}
+           or b.parent_ids like '%${orgId}%'
+        GROUP BY id
+    </select>
+
+    <select id="maintenUserList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select CONCAT(u.id)                                                id,
+               u.name,
+               mobile                                                      phone,
+               case when ur.role_id = 233993942926888975 then 0 ELSE 1 end type
+        from sys_user u
+                 inner join sys_user_role ur on ur.user_id = u.id
+        where ur.role_id in (233993942926888975, 5)
+    </select>
+
+    <select id="maintenanceList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(d.id) type,
+               CONCAT(c.id) principal,
+               c.contacts   username,
+               d.name       companyName,
+               c.telephone
+        from pdf_order a
+                 inner join t_org b on b.id = a.alarm_addr
+                 INNER JOIN pdf_maintenance_detail c on c.org_parent_id = b.parent_id
+                 inner join pdf_maintenance d on d.id = c.maintenance_id
+        where a.id = #{id}
+    </select>
+
+    <update id="updateMainType">
+        update pdf_order
+        set main_type = 1,
+            principal = #{principal}
+        where id = #{id}
+    </update>
+
+    <select id="getVedioLogByChId" resultType="com.jeeplus.common.persistence.MapEntity">
+        select DATE_FORMAT(a.occur_time, '%Y-%m-%d %H:%i:%s') time,CONCAT(a.id) id
+        from t_alarm_log a
+            inner join t_alarm_videorecord av
+        on av.alarm_log_id = a.id
+        where a.ch_id = #{chId}
+        ORDER BY a.occur_time desc
+    </select>
+
+    <select id="getVediorecorderByAlarmLogId" resultType="com.jeeplus.common.persistence.MapEntity">
+        select video_ch_id        videoChId,
+               alarm_log_id       alarmLogId,
+               store_server_id    storeServerId,
+               IFNULL(c.addr, '') addr,
+               c.name,
+               record_status      recordStatus,
+               store_path         StorePath,
+               play_url           playUrl
+        from t_alarm_videorecord v
+                 left join t_channel c on c.id = v.video_ch_id
+        where alarm_log_id = #{alarmLogId}
+    </select>
+
+
+</mapper>

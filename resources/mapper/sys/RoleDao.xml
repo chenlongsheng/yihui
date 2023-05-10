@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.sys.dao.RoleDao">
+
+	<resultMap id="roleResult" type="Role">
+		<id property="id" column="id" />
+		<result property="name" column="name" />
+		<result property="enname" column="enname" />
+		<result property="roleType" column="roleType" />
+		<result property="dataScope" column="dataScope" />
+		<result property="remarks" column="remarks" />
+		<result property="useable" column="useable" />
+		<result property="office.id" column="office.id" />
+		<result property="office.name" column="office.name" />
+		<result property="sysData" column="sysData" /><!-- <collection property="userList" ofType="User"> <id property="id" 
+			column="userList.id" /> <id property="loginName" column="userList.loginName" /> <id property="name" column="userList.name" 
+			/> <id property="email" column="userList.email" /> <id property="phone" column="userList.phone" /> <id property="mobile" 
+			column="userList.mobile" /> <id property="office.name" column="userList.office.name" /> <id property="company.name" column="userList.company.name" 
+			/> </collection> -->
+		<collection property="menuList" ofType="Menu">
+			<id property="id" column="menuList.id" />
+		</collection>
+		<collection property="officeList" ofType="Office">
+			<id property="id" column="officeList.id" />
+		</collection>
+	</resultMap>
+
+	<sql id="roleColumns">
+		concat(a.id) as id,
+		a.office_id AS "office.id",
+		a.name,
+		a.enname,
+		a.role_type AS roleType,
+		a.data_scope AS
+		dataScope,
+		a.remarks,
+		a.create_by AS "createBy.id",
+		a.create_date,
+		a.update_by AS
+		"updateBy.id",
+		a.update_date,
+		a.del_flag,
+		o.name AS
+		"office.name",
+		o.code,
+		a.useable AS useable,
+		a.is_sys AS sysData
+	</sql>
+
+	<select id="get" resultMap="roleResult">
+		SELECT
+		<include refid="roleColumns" />
+		,<!-- ur.user_id AS "userList.id", u.login_name AS "userList.loginName", u.name AS "userList.name", u.email AS "userList.email", 
+			u.phone AS "userList.phone", u.mobile AS "userList.mobile", uc.name AS "userList.company.name", uo.name AS "userList.office.name", -->
+		rm.menu_id AS "menuList.id",
+		ro.office_id AS "officeList.id"
+		FROM sys_role a
+		LEFT JOIN sys_office o ON o.id = a.office_id
+		<!-- LEFT JOIN sys_user_role ur ON ur.role_id = a.id LEFT JOIN sys_user u ON u.id = ur.user_id LEFT JOIN sys_office uc 
+			ON uc.id = u.company_id LEFT JOIN sys_office uo ON uo.id = u.office_id -->
+		LEFT JOIN sys_role_menu rm ON rm.role_id = a.id
+		LEFT JOIN sys_role_office ro ON ro.role_id = a.id
+		WHERE a.id = #{id}
+	</select>
+
+	<select id="getByName" resultType="Role">
+		SELECT
+		<include refid="roleColumns" />
+		FROM sys_role a
+		JOIN sys_office o ON o.id = a.office_id
+		WHERE a.name = #{name} AND a.del_flag = #{DEL_FLAG_NORMAL}
+		and
+		a.office_id = #{office.id}
+	</select>
+
+	<select id="getByEnname" resultType="Role">
+		SELECT
+		<include refid="roleColumns" />
+		FROM sys_role a
+		JOIN sys_office o ON o.id = a.office_id
+		<where>
+			a.enname = #{enname} AND a.del_flag = #{DEL_FLAG_NORMAL}
+			<if test="office != null and office.id !=null and office.id !=''">
+				and a.office_id = #{office.id}
+			</if>
+		</where>
+	</select>
+
+	<select id="findList" resultMap="roleResult">
+		SELECT
+		<include refid="roleColumns" />
+		,
+		ro.office_id AS "officeList.id"
+		FROM sys_role a
+		LEFT JOIN sys_office o ON o.id = a.office_id
+		LEFT JOIN sys_role_office
+		ro ON
+		ro.role_id = a.id
+		LEFT JOIN sys_user_role ur ON ur.role_id = a.id
+		LEFT JOIN sys_user u ON u.id = ur.user_id
+		WHERE
+		a.del_flag = #{DEL_FLAG_NORMAL} AND a.useable=#{useable} and a.id !=10000 
+<!-- 		<if test="user != null and user.id != null and user.id != ''"> -->
+<!-- 			AND u.id = #{user.id} -->
+<!-- 		</if> -->
+		<if test="userId != null and userId != '' and userId != 1">
+			and a.create_by = #{userId}
+		</if>
+		<if test="user != null and user.loginName != null and user.loginName != ''">
+			AND u.login_name = #{user.loginName}
+		</if>
+		<if test="name != null and name != ''">
+			AND a.name like
+			<if test="dbName == 'oracle'">'%'||#{name}||'%'</if>
+			<if test="dbName == 'mysql'">CONCAT('%', #{name}, '%')</if>
+		</if>
+		<if test="enname != null and enname != ''">
+			AND a.enname like
+			<if test="dbName == 'oracle'">'%'||#{enname}||'%'</if>
+			<if test="dbName == 'mysql'">CONCAT('%', #{enname}, '%')</if>
+		</if>
+		<if test="office != null and office.id != null and office.id != '' and office.id != 1 ">
+			AND a.office_id = #{office.id}
+		</if>
+		<!-- 数据范围过滤 -->
+		${sqlMap.dsf}
+		GROUP BY a.id
+		ORDER BY a.update_date desc
+	</select>
+
+	<select id="findAllList" resultType="Role">
+		SELECT
+		<include refid="roleColumns" />
+		FROM sys_role a
+		LEFT JOIN sys_office o ON o.id = a.office_id
+		WHERE a.del_flag = #{DEL_FLAG_NORMAL}
+		ORDER BY o.code,a.name
+	</select>
+
+	<insert id="insert">
+		INSERT INTO sys_role(
+		id,
+		office_id,	
+		name,
+		enname,
+		role_type,
+		data_scope,
+		create_by,
+		create_date,
+		update_by,
+		update_date,
+		remarks,
+		del_flag,
+		is_sys,
+		useable,
+		visible
+		) VALUES (
+		#{id},
+		#{office.id},
+		#{name},
+		#{enname},
+		#{roleType},
+		#{dataScope},
+		#{createBy.id},
+		#{createDate},
+		#{updateBy.id},
+		#{updateDate},
+		#{remarks},
+		#{delFlag},
+		1,
+		#{useable},
+		1
+		)
+	</insert>
+
+	<update id="update">
+		UPDATE
+		sys_role
+		SET
+		office_id = #{office.id},
+		name = #{name},
+		enname = #{enname},
+		role_type =	#{roleType},
+		data_scope = #{dataScope},
+		update_by = #{updateBy.id},
+		update_date = #{updateDate},
+		remarks = #{remarks},
+		is_sys = #{sysData},
+		useable = #{useable}
+		WHERE id = #{id}
+	</update>
+
+	<delete id="deleteRoleMenu">
+		DELETE FROM sys_role_menu WHERE role_id = #{id}
+	</delete>
+    
+	<insert id="insertRoleMenu">
+		INSERT INTO sys_role_menu(role_id, menu_id)
+		<foreach collection="menuList" item="menu" separator=" union all ">
+			SELECT #{id}, #{menu.id} FROM dual
+		</foreach>
+	</insert>
+
+	<delete id="deleteRoleOffice">
+		DELETE FROM sys_role_office WHERE role_id = #{id}
+	</delete>
+
+	<insert id="insertRoleOffice">
+		INSERT INTO sys_role_office(role_id, office_id) values(#{id}, #{office.id})
+	</insert>
+
+	<!-- INSERT INTO sys_role_office(role_id, office_id) -->
+	<!-- <foreach collection="officeList" item="office" separator=" union all "> -->
+	<!-- SELECT #{id}, #{office.id} FROM dual -->
+	<!-- </foreach> -->
+
+	<update id="delete">
+		DELETE FROM sys_role
+		WHERE id = #{id}
+	</update>
+
+	<update id="deleteByLogic">
+		UPDATE
+		sys_role
+		SET
+		del_flag = #{DEL_FLAG_DELETE}
+		WHERE
+		id = #{id}
+	</update>
+
+	<select id="roleMenuList" resultType="java.lang.String">
+		select concat(menu_id) MenuId from sys_role_menu where role_id = #{id}
+	</select>
+
+	<select id="getUserList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		a.name roleName,
+		c.login_name loginName,
+		c.name,
+		c.mobile
+		from
+		sys_role a
+		INNER JOIN sys_user_role b on a.id = b.role_id
+		INNER JOIN sys_user c on c.id = b.user_id
+		where
+		a.id = #{id}
+	</select>
+
+	<select id="roleListByUserId1" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		m.id,
+		m.parent_id pId,
+		m.parent_ids pIds,
+		m.name,
+		case when devType in (162) then 'Statistics:list:security'
+		when devType in (172) then 'Statistics:list:fire'
+		when devType in (168,169,201) then 'Statistics:list:environment'
+		when devType in (174) then 'Statistics:list:energy'
+		when devType in (1) then 'Statistics:list:camera'
+		when devType is null then permission
+		else '' end permission
+		from
+		sys_user_role ur
+		inner join sys_role_menu rm on ur.role_id = rm.role_id
+		inner join sys_menu m on m.id= rm.menu_id
+		left join (	
+		select td.dev_type devType,tc.name,119 sort
+		from t_device td
+		inner join t_org o on o.id = td.org_id
+		INNER JOIN pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id=og.bureau_id
+		left join t_code tc on tc.id = td.dev_type and tc.type_id = td.type_id
+		where uo.user_id = #{userId} and td.dev_type in (162,168,169,174,172) group by td.dev_type
+	
+		UNION ALL
+	    
+		select ch_type devType,tc.name,119 sort	
+		from t_channel td inner join t_org o on o.id = td.logic_org_id
+		INNER JOIN pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id=og.bureau_id
+		left join t_code tc on tc.id = td.channel_type and tc.type_id = td.type_id
+		where uo.user_id = #{userId} and channel_type in (2,3,220) group by td.ch_type	
+		) oo on oo.sort = m.sort
+		where
+		ur.user_id = #{userId}
+	</select>
+	
+	<select id="roleListByUserId" resultType="com.jeeplus.common.persistence.MapEntity">
+	   select
+        CONCAT(id) id,
+        CONCAT(m.parent_id) pId,
+        CONCAT(m.parent_ids) pIds,
+        m.name,
+        permission
+        from
+        sys_user_role ur
+        inner join sys_role_menu rm on ur.role_id = rm.role_id
+        inner join sys_menu m on m.id= rm.menu_id    
+        where
+        ur.user_id =  #{userId}
+	</select>
+	
+
+	<update id="updateVisible">
+		update sys_role set visible = #{visible} where id = #{roleId}
+	</update>
+
+	<select id="rolesByUserId" resultType="java.lang.String">
+		select
+		CONCAT(m.parent_ids,',',m.id) pIds
+		from
+		sys_user_role ur
+		inner join sys_role_menu rm on ur.role_id = rm.role_id
+		inner join sys_menu m on m.id= rm.menu_id
+		where ur.user_id = #{userId}
+	</select>
+	
+	<select id="getMenusByPId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(id) id,
+		CONCAT(parent_id) pId,
+		name,
+		CONCAT(parent_ids) pIds,
+		permission 
+		from 
+		sys_menu 
+		where id in (${pIds});
+	</select>
+
+	<!-- 用户下设备所有类型 -->
+	<select id="getDeviceType" resultType="com.jeeplus.common.persistence.MapEntity">
+		select dev_type devType,
+		tc.name 
+		from t_device td 
+		inner join t_org o on o.id = td.org_id
+		INNER JOIN pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id=og.bureau_id
+		left join t_code tc on tc.id = td.dev_type and tc.type_id = td.type_id
+		where 
+		uo.user_id = 1 and dev_type in (162,168,174,172) group by td.dev_type
+
+		UNION ALL
+
+		select 
+		ch_type devType,
+		tc.name 
+		from t_channel td 
+		inner join t_org o on o.id = td.logic_org_id
+		INNER JOIN pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id=og.bureau_id
+		left join t_code tc on tc.id = td.channel_type and tc.type_id = td.type_id
+		where uo.user_id = 1 and channel_type in (2,3,220) group by td.ch_type
+	</select>
+</mapper>

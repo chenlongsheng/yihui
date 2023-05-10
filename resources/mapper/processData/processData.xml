@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper
+        namespace="com.jeeplus.modules.processData.dao.ProcessDataDao">
+
+    <update id="truncateDetail">
+        TRUNCATE t_device;
+
+        TRUNCATE t_device_detail;
+
+        TRUNCATE t_channel;
+
+        TRUNCATE t_real_data;
+
+        TRUNCATE pdf_org_image;
+
+        TRUNCATE pdf_image_dev_ch;
+    </update>
+
+
+    <update id="updateOnline">
+        update t_device_detail
+        set online = #{online}
+        where mac = #{mac}
+    </update>
+
+
+    <update id="insertDevice">
+        replace
+        into t_device (
+		id,
+		dev_type,
+		type_id,
+		name,
+		addr,
+		firmware_version,
+		coords_x,
+		coords_y,
+		sn,
+		parent_id,
+		order_no,
+		not_use,
+		del_flag,
+		create_date,
+		update_date
+		)
+		values
+		(
+        #{id},
+        #{dev_type},
+        #{type_id},
+        #{name},
+        #{addr},
+        #{firmware_version},
+        #{coords_x},
+        #{coords_y},
+        #{sn},
+        #{parent_id},
+        #{order_no},
+        #{not_use},
+        #{del_flag},
+        #{create_date},
+        #{update_date}
+        );
+
+        replace
+        into t_device_detail(
+		id,
+		ip ,
+		port,
+		uname ,
+		upwd ,
+		mac,
+		imei ,
+		outer_id,
+		online ,
+		comm_channel,
+		freq_band,
+		bus_addr,
+		iccid ,
+		timeout)
+		values (
+        #{id},
+        #{ip},
+        #{port},
+        #{uname} ,
+        #{upwd},
+        #{mac},
+        #{imei},
+        #{outer_id},
+        #{online},
+        #{comm_channel},
+        #{freq_band},
+        #{bus_addr},
+        #{iccid},
+        #{timeout}
+        )
+    </update>
+
+
+    <update id="inserChannels">
+        replace into t_channel(
+        id,
+        dev_id,
+        type_id,
+        ch_type,
+        ch_no,
+        name,
+        coords_x,
+        coords_y,
+        param0,
+        param1,
+        param2,
+        not_use,
+        del_flag,
+        create_date,
+        update_date,
+        online,
+        outer_id,
+        addr,
+        channel_type,
+        iec104
+
+        )VALUES(
+        #{id},
+        #{dev_id},
+        #{type_id},
+        #{ch_type},
+        #{ch_no},
+        #{name},
+        #{coords_x},
+        #{coords_y},
+        #{param0},
+        #{param1},
+        #{param2},
+        #{not_use},
+        #{del_flag},
+        #{create_date},
+        #{update_date},
+        #{online},
+        #{outer_id},
+        #{addr},
+        #{channel_type},
+        <if test="iec104 == ''">
+            0
+        </if>
+        <if test="iec104 != ''">
+            #{iec104}
+        </if>
+
+        );
+
+        replace into t_real_data
+        (id,real_value, real_time,start_time, warn)
+        values (
+        #{id},
+        #{real_value},
+        #{real_time},
+        #{real_time},
+        <if test="warn == '' or warn == null ">
+            0
+        </if>
+        <if test="warn != null ">
+            #{warn}
+        </if>
+        );
+    </update>
+
+
+    <update id="inserImage">
+        replace
+        into pdf_org_image(id, name, image,
+		container_width,
+		container_height )
+		VALUES
+		(
+        #{id},
+        #{name},
+        #{image},
+        #{container_width},
+        #{container_height}
+        )
+    </update>
+
+
+    <update id="inserImageDevCh">
+        replace
+        into pdf_image_dev_ch(
+		id,
+		pdf_image_id,
+		dev_ch_id,
+		type_id)
+		VALUES(
+        #{id},
+        #{pdf_image_id},
+        #{dev_ch_id},
+        #{type_id}
+        );
+    </update>
+
+
+    <update id="updatedevicetail">
+
+        update t_device_detail
+        set online = #{online}
+        where id = #{id};
+    </update>
+    <!--    <if test="item.warn == '' or item.warn == null ">
+                 ,warn = 0
+             </if>
+             <if test="item.warn != null ">
+                 ,warn =#{item.warn}
+             </if>-->
+    <update id="updateRealData">
+
+        <foreach item="item" index="index" collection="list">
+            update t_real_data
+            set
+            real_value =#{item.real_value},
+            real_time = #{item.real_time}
+            where id=#{item.id};
+        </foreach>
+
+    </update>
+
+</mapper>

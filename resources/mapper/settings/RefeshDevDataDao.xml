@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.RefeshDevDataDao">
+
+	<select id="getDeviceOnline" resultType="com.jeeplus.common.persistence.MapEntity">
+
+		select
+		concat(d.id) id,
+		d.dev_type devType,
+		case when dev_type = 150 then mac else sn end macsn,
+		case when dd.online=0 then 0 else 1 end
+		online
+		from t_device d
+		inner join t_device_detail dd on dd.id =d.id
+		where dev_type in (150)
+	</select>
+
+	<select id="getMacsByDevId" resultType="java.lang.String">
+		select mac
+		from t_device d
+		inner join t_device_detail dd on dd.id = d.id
+		where d.id = #{id} or d.parent_id = #{id}
+	</select>
+
+	<update id="onlineList">
+
+		update
+		t_device_detail set online = 1 where id in
+		<foreach collection="list" index="index" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+	</update>
+
+
+	<update id="notOnlineList">
+		update
+		t_device_detail
+		set online = 0
+		where id in
+		<foreach collection="list" index="index" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+		or
+		id in
+		(
+		select id from t_device where parent_id in
+		<foreach collection="list" index="index" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+		)
+	</update>
+
+
+
+
+
+
+
+</mapper>

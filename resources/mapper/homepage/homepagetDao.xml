@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.homepage.dao.HomepageDao">
+
+    <select id="getTypeList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(dev_type, type_id)                    id
+             , name
+             , count(*)                                     allCount
+             , sum(case when online > 0 then 1 else 0 end)  onlineCount
+             , IFNULL(max(warn), 0)                         warn
+             , CONCAT('/static_modules/device/', icon_skin) iconSkin
+        from (select d.dev_type, d.type_id, tc.name, dd.online, max(r.warn) warn, tc.icon_skin
+              from t_device d
+                       left join t_device_detail dd on dd.id = d.id
+                       inner join t_channel c on c.dev_id = d.id
+                       LEFT join t_real_data r on r.id = c.id
+                       left join t_code tc on tc.id = d.dev_type and tc.type_id = d.type_id
+              where d.dev_type in (168, 169, 172, 225, 240)
+              GROUP BY d.id) m
+        GROUP BY dev_type
+
+        UNION all
+
+        select concat(ch_type, type_id)                      id
+             , name
+             , count(*)                                      allCount
+             , sum(case when online > 0 then 1 else 0 end)   onlineCount
+             , 0                                             warn
+             , CONCAT('/static_modules/channel/', icon_skin) iconSkin
+        from (select c.id, c.ch_type, c.type_id, tc.name, dd.online, 0 warn, tc.icon_skin
+              from t_device d
+                       inner join t_device_detail dd on dd.id = d.id
+                       inner join t_channel c on c.dev_id = d.id
+
+                       left join t_code tc on tc.id = c.channel_type and tc.type_id = c.type_id
+              where d.dev_type in (109)
+              GROUP BY c.id) m
+        GROUP BY m.ch_type
+    </select>
+
+    <select id="getDeviceNumList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select CONCAT(d.id, d.type_id)                         id,
+               d.dev_type,
+               tc.name,
+               dd.online,
+               max(r.warn)                                     warn,
+               CONCAT('/static_modules/device/', tc.icon_skin) iconSkin,
+               DATE_FORMAT(r.real_time, '%Y-%m-%d %H:%i:%s') time
+        from
+            t_device d inner join t_device_detail dd
+        on dd.id = d.id
+            inner join t_channel c on c.dev_id = d.id
+            inner join t_real_data r on r.id = c.id
+            left join t_code tc on tc.id = d.dev_type and tc.type_id = d.type_id
+        where d.dev_type in (168, 169, 172, 225, 240)
+        GROUP BY d.id
+        ORDER BY dev_type, dev_id
+    </select>
+
+
+    <select id="getDevTypeNames" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(d.id) id,
+               d.addr,
+               d.name,
+               d.dev_type   devType
+        from t_device d
+                 inner join t_channel c on c.dev_id = d.id
+        where dev_type in (169, 225)
+        GROUP BY d.id
+        ORDER BY d.dev_type
+    </select>
+
+
+    <select id="getHistorysByDevId" resultType="com.jeeplus.common.persistence.MapEntity">
+        select c.name,
+        d.addr,
+        h.history_value,
+        c.ch_type,
+        date_format(h.history_time,'%Y-%m-%d %H:%i:%s') time
+        from t_device d
+        inner join t_channel c on c.dev_id = d.id
+        left join t_history_data_final h on h.ch_id = c.id
+        <where>d.id = #{devId} and h.history_time &gt; #{time} and h.history_time &lt;= concat(#{time},' 23:59:59')
+            <if test="devType != null and devType == 169">
+                and ch_type in (101, 102)
+            </if>
+        </where>
+        ORDER BY c.ch_type, h.history_time
+    </select>
+
+    <select id="getTailById" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(c.id) id,
+               d.addr,
+               c.name       chName,
+               '数据异常'   alarmType,
+               count(*) count,
+    a.alarm_value value,
+    c.type_id typeId,
+    DATE_FORMAT( max( occur_time ), '%Y-%m-%d %H:%i:%s' ) time
+        from
+            t_device d
+            inner join t_channel c
+        on c.dev_id = d.id
+            inner join t_alarm_log a on a.ch_id = c.id
+        where d.id = #{devId}
+        GROUP BY
+            c.id
+        ORDER BY
+            time desc
+    </select>
+</mapper>

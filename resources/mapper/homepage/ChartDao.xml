@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.homepage.dao.ChartDao">
+
+
+
+	<select id="alarmTypeList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		count(*) AlarmCount 
+		from t_alarm_log a 
+		inner join t_channel c on c.id = a.ch_id
+		inner join t_device d on d.id =	c.dev_id
+		inner JOIN
+		(select ub.bureau_id ,o.id ,o.name orgName from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where ub.user_id =#{userId})   oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType}
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+			<if test="status !=null and status !='' and status=0">
+				and to_days(occur_time) = to_days(now())
+			</if>
+			<if test="status !=null and status !='' and status =1">
+				and DATE_FORMAT(occur_time, '%Y%m') = DATE_FORMAT(CURDATE( ), '%Y%m')
+			</if>
+		</where>
+	</select>
+     <!--      门磁打开个数 -->
+	<select id="doorRateList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select count(*) allCount,
+		sum(case when r.real_value = 1 then 1 else 0 end) onlineCount
+		from t_device d
+		inner join
+		(select ub.bureau_id,
+		o.id,
+		o.name orgName 
+		from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where 
+		ub.user_id = #{userId}) oo on oo.id = d.org_id
+		LEFT JOIN t_device_detail dd on dd.id = d.id
+		left join t_channel c on c.dev_id = d.id
+		left join t_real_data r on r.id = c.id
+		<where>
+			d.dev_type = #{devType} and ch_type = 5
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+	</select>
+<!-- 	设备类型在线率 -->
+	<select id="devTypeRate" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		count(*) allCount,
+		sum(case when dd.online = 0 then 0 else 1 end) onlineCount
+		from t_device d
+		LEFT JOIN t_device_detail dd on dd.id = d.id
+		inner join
+		(select ub.bureau_id ,o.id ,o.name orgName from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id = ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where ub.user_id =#{userId}) oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType}
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+	</select>
+	
+	<!-- 	设备类型离线率集合 -->
+	<select id="devTypeOffRateListTop10" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		 oo.orgName,
+		 COUNT(*)allCount,
+		 sum(case when dd.online = 0 then 1 else 0 end) offCount,
+		 sum(case when dd.online = 0 then 1 else 0 end)/COUNT(*) offRate
+		from t_device d
+		LEFT JOIN t_device_detail dd on dd.id = d.id
+		inner join
+		(select ub.bureau_id ,o.id ,o.name orgName from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id = ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where ub.user_id =#{userId})  oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType}
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+		 GROUP BY oo.id ORDER BY offRate desc limit 10
+	</select>
+	
+	
+	
+     <!-- 	报警次数top10 -->
+	<select id="devTypeTop10" resultType="com.jeeplus.common.persistence.MapEntity">
+		select IFNULL(COUNT(*),0) openCount,
+		oo.orgName,
+		oo.id orgId,
+		d.id,
+		d.dev_type devType,
+		d.name
+		from t_device d inner join
+		(select
+		ub.bureau_id,
+		o.id,
+		o.name orgName 
+		from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join	t_org o on o.id = po.t_org_id
+		where ub.user_id =#{userId}) oo on oo.id = d.org_id
+		LEFT JOIN t_device_detail dd on dd.id =	d.id
+		left join t_channel c on c.dev_id = d.id
+		left join t_alarm_log a on a.ch_id = c.id
+		<where>
+			d.dev_type = #{devType}
+			<if test="devType ==162 ">
+				 and ch_type = 5
+			</if>			
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+			<if test="beginDate != null and beginDate != ''">
+				and a.occur_time &gt;= DATE_FORMAT(#{beginDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != null and endDate != ''">
+				and a.occur_time &lt;= DATE_FORMAT(#{endDate},'%Y-%m-%d')
+			</if>
+		</where>
+		GROUP BY oo.id ORDER BY openCount desc limit 10
+	</select>
+
+     <!--  门磁平均报警次数时段图标 -->
+	<select id="avgDoorAlarmList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select d.dev_type devType,
+		d.name,
+		concat(DATE_FORMAT(a.occur_time,'%H'),':00') time,COUNT(*)/(TIMESTAMPDIFF(DAY, #{beginDate},#{endDate}) + 1) openCount
+		from t_device d 
+		inner join
+		(select	ub.bureau_id ,o.id,o.name orgName 
+		from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where ub.user_id = #{userId} ) oo on oo.id = d.org_id
+		LEFT JOIN t_device_detail dd on dd.id = d.id	
+		left join t_channel c on c.dev_id = d.id
+		inner join t_alarm_log a on a.ch_id = c.id
+		<where>
+			d.dev_type = #{devType}	 and ch_type = 5
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>		
+			<if test="beginDate != null and beginDate != ''">
+				and a.occur_time &gt;= DATE_FORMAT(#{beginDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != null and endDate != ''">
+				and a.occur_time &lt;= DATE_FORMAT(#{endDate},'%Y-%m-%d')
+			</if>
+		</where>
+		GROUP BY DATE_FORMAT(a.occur_time,'%H') order by time
+	</select>	
+
+
+       <!-- 安全运行天数 -->
+	<select id="saveDays" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT TIMESTAMPDIFF(DAY, MAX(d.update_date),now()) saveTime 
+		from t_device d
+		inner join
+		(select ub.bureau_id ,o.id,o.name orgName from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where ub.user_id =#{userId}) oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType}
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+	</select>
+
+
+	<select id="getHumitures" resultType="com.jeeplus.common.persistence.MapEntity">
+		select c.ch_type chType,
+		c.name,
+		MIN(FORMAT((r.real_value-param2)/c.param1,c.param0)) minRealValue,
+		MAX(FORMAT((r.real_value-param2)/c.param1,c.param0)) maxRealValue
+		from t_device d 
+		inner join t_channel c on c.dev_id = d.id	
+		INNER JOIN t_real_data r on r.id = c.id
+		inner join
+		(select ub.bureau_id ,o.id ,o.name orgName from
+		sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id = ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where
+		ub.user_id =#{userId}) oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType} and c.ch_type in (101,102) 
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+		 GROUP BY c.ch_type
+	</select>
+<!--     实时烟感水浸电量占比 -->
+	<select id="getElectricityThan"  resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		IFNULL(case when r.real_value &lt; 30 then COUNT(*) end,0) countOne,
+		IFNULL(case when r.real_value &gt;=30 and r.real_value &lt;=80 then COUNT(*) end,0) countTwo,
+		IFNULL(case when r.real_value &gt; 80 then COUNT(*) end,0) countThr
+		from t_device d inner join
+		t_channel c on d.id = c.dev_id
+		inner JOIN t_real_data r on r.id = c.id
+		inner join	(select ub.bureau_id ,o.id ,o.name orgName from
+		sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id = ub.bureau_id
+		inner join t_org o on o.id = po.t_org_id
+		where
+		ub.user_id =#{userId}) oo on oo.id = d.org_id
+		<where>
+			d.dev_type = #{devType}	and c.ch_type = 121			
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+	</select>
+	
+	<select id="getHumituresTop10"  resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+	    FORMAT((avg(a.real_value)-param2)/c.param1,c.param0) realValue,  
+	    oo.orgName,oo.id orgId,c.ch_type chType,c.name
+		from t_device d inner join
+		(select
+		ub.bureau_id,o.id,o.name orgName from sys_user_bureau ub
+		inner join pdf_org po on po.bureau_id= ub.bureau_id
+		inner join
+		t_org o on o.id =
+		po.t_org_id
+		where ub.user_id =#{userId}) oo on oo.id = d.org_id
+		LEFT JOIN t_device_detail dd
+		on dd.id =
+		d.id
+		left join
+		t_channel c on c.dev_id = d.id
+		left join t_real_data a on a.id = c.id
+		<where>
+			d.dev_type = #{devType} and c.ch_type = #{chType} 
+			<if test="orgId !=null and orgId !=''">
+				and d.org_id = #{orgId}
+			</if>
+			<if test="bureauId !=null and bureauId !=''">
+				and bureau_id = #{bureauId}
+			</if>
+		</where>
+		GROUP BY oo.id ORDER BY avg(a.real_value) DESC limit 10
+	
+	</select>
+
+</mapper>

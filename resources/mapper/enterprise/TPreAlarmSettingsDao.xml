@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.enterprise.dao.TPreAlarmSettingsDao">
+
+	<sql id="tPreAlarmSettingsColumns">
+		a.id AS "id",
+		a.alarm_lev AS "alarmLev",
+		a.value_low AS "valueLow",
+		a.value_high AS "valueHigh",
+		a.sms_lev AS
+		"smsLev",
+		a.org_id AS "orgId",
+		a.type_id AS "typeId",
+		a.code_id AS "codeId",
+		a.remind_type AS "remindType",
+		a.remind_person AS "remindPerson",
+		a.create_by AS "createBy.id",
+		a.create_date AS "createDate",
+		a.update_by AS
+		"updateBy.id",
+		a.update_date AS "updateDate",
+		a.duration AS "duration"
+	</sql>
+
+	<sql id="tPreAlarmSettingsJoins">
+	</sql>
+
+
+	<select id="get" resultType="TPreAlarmSettings">
+		SELECT
+		<include refid="tPreAlarmSettingsColumns" />
+		FROM t_pre_alarm_settings a
+		<include refid="tPreAlarmSettingsJoins" />
+		WHERE a.id = #{id}
+	</select>
+
+
+	<select id="getPreAlarmSetttingByTypeAndLev" resultType="TPreAlarmSettings">
+		SELECT
+		<include refid="tPreAlarmSettingsColumns" />
+		FROM t_pre_alarm_settings a
+		<include refid="tPreAlarmSettingsJoins" />
+		WHERE
+		a.alarm_lev = #{alarmLev}
+		AND a.org_id = #{orgId}
+		AND a.code_id = #{chType}
+		AND a.type_id = #{typeId}
+	</select>
+
+
+	<select id="getRemindPerson" resultType="TPreAlarmSettings">
+		SELECT a.remind_person
+		FROM t_pre_alarm_settings a
+		WHERE a.id =
+		(SELECT
+		MAX(id)
+		FROM t_pre_alarm_settings
+		WHERE org_id = #{orgId});
+	</select>
+
+	<update id="saveRemindPersons">
+		UPDATE t_pre_alarm_settings SET
+		remind_person = #{remindPerson}
+		WHERE org_id = #{orgId}
+	</update>
+
+	<select id="findList" resultType="TPreAlarmSettings">
+		SELECT
+		<include refid="tPreAlarmSettingsColumns" />
+		FROM t_pre_alarm_settings a
+		<include refid="tPreAlarmSettingsJoins" />
+		<where>
+			<if test="codeId != null and codeId != ''">
+				AND a.code_id = #{codeId}
+			</if>
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.update_date DESC
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="getSencePrealarmSettings" resultType="TPreAlarmSettings">
+		SELECT
+		<include refid="tPreAlarmSettingsColumns" />
+		FROM t_pre_alarm_settings a
+		WHERE a.org_id = #{orgid}
+		<if test="codeid != null and codeid != ''">
+			AND a.code_id = #{codeid}
+		</if>
+		<if test="typeid != null and typeid != ''">
+			AND a.type_id = #{typeid}
+		</if>
+
+		<!-- AND a.code_id = #{codeid} AND a.type_id = #{typeid} -->
+	</select>
+
+	<select id="findEnterprisePreAlarmSettingsByPage" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT item.orgname,item.channeltypename,item.code_id,item.type_id,item.org_id,
+		pas1.value_low pvl1,pas1.value_high
+		pvh1,pas1.duration pd1,
+		pas2.value_low pvl2,pas2.value_high pvh2,pas2.duration pd2,
+		pas3.value_low pvl3,pas3.value_high
+		pvh3,pas3.duration pd3,
+		pas4.value_low pvl4,pas4.value_high pvh4,pas4.duration pd4
+		FROM
+		(
+		SELECT
+		CONCAT((SELECT oo.name
+		FROM t_org oo WHERE oo.code = LEFT(o.code,LENGTH(o.code)-2)),'/',o.name) orgname,
+		c.name channeltypename,c.id
+		code_id,c.type_id,o.id org_id
+		FROM t_org o,
+		(
+		SELECT code.name,code.id,code.type_id FROM t_code code WHERE code.type_id =
+		3 AND code.id in (101,102,111,112)
+		) c
+		WHERE o.org_type = 8
+		AND o.code like CONCAT((SELECT oo.code FROM t_org oo WHERE
+		oo.id=#{paramOrgId}),'%'
+		<if test="orgIds != null and orgIds != ''">
+			AND o.id in ('${orgIds}')
+		</if>
+		<if test="codeId != null and codeId != ''">
+			AND c.id = #{codeId}
+		</if>
+		) item
+
+		LEFT JOIN t_pre_alarm_settings pas1
+		ON
+		item.org_id = pas1.org_id AND pas1.alarm_lev = 1 AND pas1.code_id =
+		item.code_id AND pas1.type_id = item.type_id
+
+		LEFT JOIN t_pre_alarm_settings pas2
+		ON
+		item.org_id = pas2.org_id AND
+		pas2.alarm_lev = 2 AND pas2.code_id = item.code_id AND
+		pas2.type_id = item.type_id
+
+		LEFT JOIN t_pre_alarm_settings pas3
+		ON
+		item.org_id = pas3.org_id AND pas3.alarm_lev = 3 AND pas3.code_id = item.code_id AND
+		pas3.type_id = item.type_id
+
+		LEFT
+		JOIN t_pre_alarm_settings pas4
+		ON
+		item.org_id = pas4.org_id AND pas4.alarm_lev = 4 AND pas4.code_id = item.code_id AND
+		pas4.type_id = item.type_id
+
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY item.org_id DESC
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="findAllList" resultType="TPreAlarmSettings">
+		SELECT
+		<include refid="tPreAlarmSettingsColumns" />
+		FROM t_pre_alarm_settings a
+		<include refid="tPreAlarmSettingsJoins" />
+		<where>
+
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY a.update_date DESC
+			</otherwise>
+		</choose>
+	</select>
+
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO t_pre_alarm_settings(
+		id,
+		alarm_lev,
+		value_low,
+		value_high,
+		sms_lev,
+		org_id,
+		type_id,
+		code_id,
+		remind_type,
+		remind_person,
+		create_by,
+		create_date,
+		update_by,
+		update_date,
+		duration
+		) VALUES (
+		#{id},
+		#{alarmLev},
+		#{valueLow},
+		#{valueHigh},
+		#{smsLev},
+		#{orgId},
+		#{typeId},
+		#{codeId},
+		#{remindType},
+		#{remindPerson},
+		#{createBy.id},
+		#{createDate},
+		#{updateBy.id},
+		#{updateDate},
+		#{duration}
+		)
+	</insert>
+
+	<update id="update">
+		UPDATE t_pre_alarm_settings SET
+		alarm_lev = #{alarmLev},
+		value_low = #{valueLow},
+		value_high =
+		#{valueHigh},
+		sms_lev = #{smsLev},
+		org_id = #{orgId},
+		type_id = #{typeId},
+		code_id = #{codeId},
+		remind_type =
+		#{remindType},
+		remind_person = #{remindPerson},
+		update_by = #{updateBy.id},
+		update_date = #{updateDate},
+		duration =
+		#{duration}
+		WHERE id = #{id}
+	</update>
+
+
+	<!--物理删除 -->
+	<update id="delete">
+		DELETE FROM t_pre_alarm_settings
+		WHERE id = #{id}
+	</update>
+
+	<!--逻辑删除 -->
+	<update id="deleteByLogic">
+		UPDATE t_pre_alarm_settings SET
+		del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+
+
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="TPreAlarmSettings" statementType="STATEMENT">
+		select * FROM
+		t_pre_alarm_settings where ${propertyName} = '${value}'
+	</select>
+
+
+
+
+
+
+
+
+	<select id="getChannelListByScenceId" resultType="java.util.HashMap">
+		SELECT
+		a.id AS "id",
+		a.dev_id AS "devId",
+		a.logic_org_id AS
+		"logicOrgId",
+		a.ch_no AS "chNo",
+		a.ch_type AS "chType",
+		a.name AS "name",
+		a.coords_x AS "coordsX",
+		a.coords_y AS "coordsY",
+		a.param0 AS "param0",
+		a.param1 AS "param1",
+		a.type_id AS "typeId",
+		a.not_use AS "notUse",
+		a.del_flag AS "delFlag",
+		tc.monad,IFNULL(rd.real_value,0) realValue,
+		tc.name
+		codeName,td.id devId,td.name devName,tda.qrcode_id
+		FROM t_channel a
+		LEFT JOIN t_device td
+		ON a.dev_id =
+		td.id
+		LEFT JOIN
+		t_dvr tdvr
+		ON a.dev_id = tdvr.id
+		LEFT JOIN t_device_assets tda
+		ON
+		tdvr.mac = tda.mac
+		INNER JOIN t_code tc
+		ON
+		a.ch_type =
+		tc.id AND a.type_id = tc.type_id
+		LEFT JOIN t_real_data rd
+		ON a.id =
+		rd.id
+		WHERE a.logic_org_id = #{logicOrgId}
+		AND
+		a.not_use = 0
+		ORDER BY a.ch_type desc
+	</select>
+
+
+	<select id="getChGroupListBySenceId" resultType="com.jeeplus.modules.enterprise.entity.TChGroup">
+		SELECT
+		a.id AS "id",
+		a.name AS "name",
+		a.org_id AS "orgId",
+		a.ch_ids AS "chIds",
+		a.creator AS "creator",
+		a.cr_date AS "crDate",
+		a.cr_unit AS "crUnit",
+		a.modificator AS "modificator",
+		a.mo_date AS "moDate",
+		a.mo_unit AS "moUnit",
+		a.not_use AS "notUse",
+		a.del_flag AS "delFlag"
+		FROM t_ch_group a
+		WHERE
+		a.org_id = #{senceId}
+	</select>
+
+	<select id="getOrg" resultType="TOrg">
+		SELECT
+		a.id,
+		a.parent_id AS parentId,
+		a.name,
+		a.parent_ids AS parentIds,
+		a.order_no AS
+		orderNo,
+		a.code,
+		a.type,
+		a.coords_y AS coordsY,
+		a.coords_x AS coordsX,
+		a.image AS "picUrl"
+		FROM t_org a
+		WHERE a.id = #{id}
+	</select>
+
+
+<!-- 	根据orgid模糊查询所有子节点 -->
+	<select id="getOrgTreeByOrgId" resultType="java.util.HashMap">
+		select
+		concat(a.id) AS "id",
+		a.parent_id as parentId,
+		a.code AS "code",
+		a.order_no AS "orderNo",
+		a.name AS "name",
+		a.coords_x AS "coordsX",
+		a.coords_y AS
+		"coordsY",
+		a.type AS "type",
+		a.del_flag AS
+		"delFlag",
+		a.image AS "image",
+		a.pic_url as picUrl
+		from t_org a where id in (
+		select DISTINCT(parent_id) from t_org where
+		type = 5) or type = 5
+		order by a.code
+	</select>
+
+	<!-- 根据orgid模糊查询所有子节点 -->	
+<!-- 	<select id="getOrgTreeByOrgId" resultType="java.util.HashMap"> -->
+<!-- 		select -->
+<!-- 		concat(a.id) AS "id", -->
+<!-- 		concat(a.parent_id) as parentId, -->
+<!-- 		a.code AS "code", -->
+<!-- 		a.order_no AS "orderNo", -->
+<!-- 		a.name AS "name", -->
+<!-- 		a.coords_x AS "coordsX", -->
+<!-- 		a.coords_y AS -->
+<!-- 		"coordsY", -->
+<!-- 		a.type AS "type", -->
+<!-- 		a.del_flag AS -->
+<!-- 		"delFlag", -->
+<!-- 		a.image AS "image", -->
+<!-- 		a.pic_url as picUrl -->
+<!-- 		from t_org a where id in ( -->
+<!-- 		select DISTINCT(parent_id) from t_org where -->
+<!-- 		type = 5) or type = 5 -->
+<!-- 		UNION -->
+<!-- 		select -->
+<!-- 		concat(a.id) AS "id", -->
+<!-- 		concat(a.parent_id) as parentId, -->
+<!-- 		a.code AS "code", -->
+<!-- 		a.order_no AS "orderNo", -->
+<!-- 		a.name AS "name", -->
+<!-- 		a.coords_x AS -->
+<!-- 		"coordsX", -->
+<!-- 		a.coords_y AS -->
+<!-- 		"coordsY", -->
+<!-- 		a.type AS "type", -->
+<!-- 		a.del_flag AS "delFlag", -->
+<!-- 		a.image AS "image", -->
+<!-- 		a.pic_url as picUrl -->
+<!-- 		from t_org a where id in (select DISTINCT(parent_id) from t_org where id in (select DISTINCT(parent_id) from t_org where -->
+<!-- 		type = 6)) -->
+<!-- 		UNION -->
+<!-- 		select -->
+<!-- 		concat(a.id) AS "id", -->
+<!-- 		concat((SELECT parent_id from t_org where id = a.parent_id)) parentId , -->
+<!-- 		a.code AS "code", -->
+<!-- 		a.order_no AS "orderNo", -->
+<!-- 		a.name AS "name", -->
+<!-- 		a.coords_x AS "coordsX", -->
+<!-- 		a.coords_y AS "coordsY", -->
+<!-- 		case a.type -->
+<!-- 		when 6 then 5 END "type", -->
+<!-- 		a.del_flag AS "delFlag", -->
+<!-- 		a.image AS "image", -->
+<!-- 		a.pic_url as picUrl from t_org a where a.type = 6 -->
+<!-- 		order by type -->
+<!-- 	</select> -->
+	
+</mapper>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.outwarddata.dao.DeviceOutDao">
+
+
+    <select id="deviceOutList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(d.id)       deviceId,
+               d.name             deviceName,
+               IFNULL(d.addr, '') addr,
+               dd.mac,
+               concat(o.id)       orgId,
+               o.name             pdfName,
+               d.dev_type         devType,
+               d.type_id          typeId,
+               dd.online
+        from t_device d
+                 inner join t_device_detail dd on dd.id = d.id
+                 inner join t_org o on o.id = d.org_id
+        where d.org_id = #{orgId}
+    </select>
+
+    <select id="channelOutList" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(c.id)                                                       chId,
+               c.ch_type                                                          chType,
+               c.type_id                                                          typeId,
+               concat(c.dev_id)                                                   deviceId,
+               concat(c.logic_org_id)                                             logicOrgId,
+               IFNULL(tc.monad, '')                                               monad,
+               c.name                                                             chName,
+               replace(FORMAT((r.real_value - param2) / param1, param0), ',', '') realValue,
+               concat(r.warn)                                                     warn,
+               DATE_FORMAT(r.real_time, '%Y-%m-%d %H:%i:%s')                      realTime
+        from t_channel c
+                 left join t_code tc on c.type_id = tc.type_id and c.ch_type = tc.id
+                 left join t_device d on d.id = c.dev_id
+                 left join t_real_data r on r.id = c.id
+        where d.org_id = #{orgId}
+    </select>
+
+    <!-- <select id="getOrgListById" resultType="com.jeeplus.common.persistence.MapEntity">
+         select concat(o.id)                                    id,
+                concat(o.parent_id)                             parent_id,
+                o.parent_ids,
+                o.name,
+                IFNULL(o.loop_type, 0)                          loop_type,
+                s.name                                          loop_name,
+                GROUP_CONCAT(pi.image)                          image,
+                DATE_FORMAT(o.create_date, '%Y-%m-%d %H:%i:%s') create_date
+         from t_org o
+                  left join star_net_code s on s.id = loop_type
+                  left join pdf_org_image pi on pi.org_id = o.id
+         where parent_ids like concat('%', '855018047319052288', '%')
+            or o.id = 855018047319052288
+         GROUP BY o.id
+     </select>-->
+
+    <update id="updateRealDatas">
+        update t_real_data
+        set real_value = (select #{realValue} * param1 + param2 from t_channel where id = #{chId})
+        <if test="realTime !=null and realTime !=''">
+            ,real_time = #{realTime}
+        </if>
+        where id = #{chId}
+    </update>
+
+</mapper>

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.yihui.dao.YihuiScreenDao">
+
+
+    <select id="getDeviceOnlines" resultType="com.jeeplus.common.persistence.MapEntity">
+        select count(*) count,
+        m.status,
+        case when status = 0 then '故障' when status = 1 then '在线' when status = 2 then '空闲'
+        when status =3 then '充电' else 1
+        end name
+        from
+        (
+        select
+        case
+        when
+        dd.online = 0 then 0
+        when r.real_value =4 then 2
+		when r.real_value in (1,2,3) then 3
+		else 1
+        end status
+        from
+        t_device d
+        inner join t_device_detail dd on d.id = dd.id
+            left join t_channel c on c.dev_id=  d.id
+            left join t_real_data r on r.id = c.id
+        where
+        org_id = 855018047319052288 and dev_type = 265 and ch_type= 258) m
+        GROUP BY
+        m.status
+    </select>
+
+    <select id="getLoopDevices" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(d.id)                                    devId,
+               d.dev_type                                      devType,
+               d.name                                          devName,
+               d.addr,
+               IFNULL(max(warn), 0)                            allWarn,
+               dd.online,
+               concat(c.logic_org_id)                          loopOrgId,
+               concat('/static_modules/device/', tc.icon_skin) iconSkin,
+               DATE_FORMAT(d.create_date, '%Y-%m-%d %H:%i:%s') createDate,
+               o.loop_type                                     loopType
+        from t_device d
+                 inner join t_device_detail dd on dd.id = d.id
+                 left join t_channel c on c.dev_id = d.id
+                 left join t_real_data r on r.id = c.id
+                 left join t_org o on o.id = c.logic_org_id
+                 left join t_code tc on tc.id = d.dev_type and tc.type_id = 1
+        where o.parent_ids like concat('%', #{orgId}, '%')
+           or o.id = #{orgId}
+        GROUP BY d.id
+        order by d.create_date desc;
+    </select>
+
+
+    <select id="getLoopChannels" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(d.id)                                                                  deviceId,
+               c.name                                                                        chName,
+               concat(c.id)                                                                  chId,
+               REPLACE(IFNULL(FORMAT((real_value - param2) / param1, param0), '0'), ',', '') realValue,
+               co.monad,
+               r.warn
+        from t_device d
+                 inner join
+             t_channel c on d.id = c.dev_id
+                 left join t_org o on o.id = c.logic_org_id
+                 inner join pdf_code tc
+                            on c.ch_type = tc.ch_type and d.dev_type = tc.dev_type and tc.status = 31
+                 left join t_real_data r on r.id = c.id
+                 left join t_code co on co.id = c.ch_type and co.type_id = c.type_id
+        where o.parent_ids like concat('%', #{orgId}, '%')
+           or o.id = #{orgId}
+    </select>
+
+    <select id="getHistorys" resultType="com.jeeplus.common.persistence.MapEntity">
+        select
+            count(*) count,
+	ROUND( SUM( history_value )/ 3600, 2 ) allHour,
+	DATE_FORMAT( history_time, '%m' ) month,
+	concat( h.id ) id
+        from
+            t_history_data_final h
+            inner join t_channel c on c.id = h.ch_id
+            inner join t_device d on d.id = c.dev_id
+        where
+            d.org_id = 855018047319052288
+          and dev_type = 265
+          and ch_type = 446 and h.history_time &gt; DATE_FORMAT(now(),'YY')
+        GROUP BY
+            DATE_FORMAT( history_time, '%Y-%m' )
+    </select>
+
+
+    <select id="getRealAlarmogs" resultType="com.jeeplus.common.persistence.MapEntity">
+        select *
+        from (select CONCAT(a.id) id,
+        CONCAT(b.id) chId,
+        b.ch_no chNo,
+        DATE_FORMAT(max(a.real_time), '%Y/%m/%d %H:%i:%s') alarmTime,
+        tdd.`online`,
+        '设备故障' alarmName,
+        CONCAT(tc.type_name, '报警') prec,
+        IFNULL(c.addr, '') deviceAddr,
+        oo.name orgName,
+        1 alarmLevel,
+        case
+        when c.dev_type in (131, 178) then
+        CONCAT(IFNULL(b.addr, ''), b.name)
+        ELSE CONCAT(IFNULL(c.addr, ''), c.name)
+        end devName,
+        d.id devType,
+        b.type_id chTypeId,
+        b.ch_type chType,
+        b.name chName,
+
+        CONCAT(c.id) devId,
+        1 alarmNumber,
+        tdd.mac
+        from t_real_data a
+        inner join t_channel b on a.id = b.id
+        left join t_org oo on oo.id = b.logic_org_id
+
+        inner JOIN t_device c on c.id = b.dev_id
+        left join t_device_detail tdd on tdd.id = c.id
+        LEFT JOIN t_code d on d.id = c.dev_type
+        and d.type_id = 1
+        left join t_code t on t.id = b.ch_type
+        and t.type_id = b.type_id
+        left join t_code_type tc on tc.id = t.type_id
+        LEFT JOIN t_org o on c.org_id = o.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = o.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user u on u.id = sys.user_id
+        left join pdf_order po on po.order_id = a.id
+        where sys.user_id = #{userId}
+        and tdd.online = 0
+        <if test="alarmType ==1">
+            and tdd.online &lt;0
+        </if>
+        GROUP BY c.id
+        union all
+        select CONCAT(a.id) id,
+        CONCAT(b.id) chId,
+        b.ch_no chNo,
+        DATE_FORMAT(max(a.occur_time), '%Y/%m/%d %H:%i:%s') alarmTime,
+        1 online,
+        '数据异常' alarmName,
+        CONCAT(tc.type_name, '报警') prec,
+        IFNULL(c.addr, '') deviceAddr,
+        o.name orgName,
+        a.alarm_level alarmLevel,
+        case
+        when d.id in (131, 178) then
+        CONCAT(IFNULL(b.addr, ''), b.name)
+        ELSE CONCAT(IFNULL(c.addr, ''), c.name)
+        end devName,
+        c.dev_type devType,
+        b.type_id chTypeId,
+        b.ch_type chType,
+        b.name chName,
+        CONCAT(c.id) devId,
+        alarmNumber,
+        tdd.mac
+        from (select *,
+        COUNT(*) alarmNumber
+        from (select * FROM t_alarm_log where status is null HAVING 1 ORDER BY occur_time desc) j
+        GROUP BY j.ch_id) a
+        inner join t_channel b on a.ch_id = b.id
+        left join t_org oo on oo.id = b.logic_org_id
+        inner JOIN t_device c on c.id = b.dev_id
+        left join t_device_detail tdd on tdd.id = c.id
+        LEFT JOIN t_code d on d.id = c.dev_type
+        and d.type_id = 1
+        left join t_code t on t.id = b.ch_type
+        and t.type_id = b.type_id
+        left join t_code_type tc on tc.id = t.type_id
+        LEFT JOIN t_org o on c.org_id = o.id
+        LEFT JOIN pdf_org pr on pr.t_org_id = o.id
+        inner join sys_user_bureau sys on sys.bureau_id = pr.bureau_id
+        left join sys_user u on u.id = sys.user_id
+        left join pdf_order po on po.order_id = a.id
+        where sys.user_id = #{userId}
+        <if test="alarmType ==0">
+            and tdd.online &lt;0
+        </if>
+        GROUP BY b.id) m
+        order by alarmTime desc
+    </select>
+
+    <select id="getOrgLoops" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(o.id)        orgId,
+               concat(o.parent_id) pId,
+               o.name              orgName,
+               loop_type           loopType
+        from t_org o
+        where (parent_ids like CONCAT('%', #{orgId}, '%') or id = #{orgId})
+          and loop_type = #{loop}
+    </select>
+
+
+    <select id="getVideos" resultType="com.jeeplus.common.persistence.MapEntity">
+        select concat(c.id) id, c.ch_no, c.name, channel_type, c.addr, c.play_url0
+        from t_device d
+        inner join t_channel c on c.dev_id = d.id
+        where org_id = 855018047319052288  and d.dev_type = 109
+    </select>
+
+
+    <select id="getTorg" resultType="com.jeeplus.common.persistence.MapEntity">
+        SELECT
+            changer_num totalCars,
+            level batteryCars,
+            capacity todayCars,
+            declared_quantity   presenceCars
+        from pdf_org where  t_org_id  = 855018047319052288  LIMIT 1;
+    </select>
+
+</mapper>

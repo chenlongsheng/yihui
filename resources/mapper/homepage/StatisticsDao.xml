@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.homepage.dao.StatisticsDao">
+
+
+	<!-- 新写的,区域 通道树视频 -->
+	<select id="orgList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select param0 orderNo,
+		a.channel_type channelType,
+		concat(a.id) id,
+		concat(a.logic_org_id) orgId,
+		CONCAT(IFNULL(a.addr,''),a.name) name,
+		a.del_flag type,
+		concat(a.outer_id) src,
+		b.name
+		orgName,
+		concat('rtmp://192.168.128.31/live/ch',a.ch_no) local_src,
+		CONCAT('/static_modules/channel/',tc.icon_skin)
+		iconSkin,
+		td.sn,
+		a.ch_no chNo,
+		a.play_url0,
+		a.play_url1,
+		a.play_url2
+		from
+		t_channel a
+		LEFT JOIN t_code tc on tc.id = a.channel_type and tc.type_id = a.type_id
+		inner join (select * from t_org where type = 5) b
+		on a.logic_org_id = b.id
+		inner join t_device td
+		on a.dev_id = td.id
+		where
+		a.ch_type =1 and
+		a.type_id = 9 and
+		a.del_flag= 0
+		and a.logic_org_id =#{orgId} ORDER BY param0
+	</select>
+
+
+	<select id="findDevTypeUse" resultType="com.jeeplus.modules.homepage.entity.Statistics">
+		SELECT
+		count(a.id) AS total,
+		SUM(CASE WHEN b.not_use = 0 THEN 1 ELSE 0 END) AS useTotal
+		from
+		pdf_dev_code a
+		INNER JOIN
+		t_device b on a.code_id = b.dev_type
+		INNER JOIN t_org c on b.org_id = c.id
+		<where>
+			<if test="devType != null and devType != ''">
+				AND a.id = #{devType}
+			</if>
+			<if test="orgId != null and orgId != ''">
+				AND (c.parent_ids LIKE concat('%',#{orgId},'%') or c.id = #{orgId})
+			</if>
+		</where>
+	</select>
+
+	<select id="findDevTypeUse1" resultType="com.jeeplus.modules.homepage.entity.Statistics">
+		SELECT
+		count(b.id) total,
+		IFNULL(SUM(CASE WHEN b.not_use = 0 THEN 1 ELSE 0 END),0) useTotal
+		from
+		t_device b
+		INNER JOIN t_org c on b.org_id = c.id
+		inner join pdf_org p on p.t_org_id = c.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		where
+		b.dev_type = #{devType} and
+		c.parent_ids LIKE concat('%',#{orgId},'%') and ub.user_id = #{userId}
+	</select>
+
+	<select id="findDevTypeUse2" resultType="com.jeeplus.modules.homepage.entity.Statistics">
+		SELECT
+		count(tc.id) total,
+		IFNULL(SUM(CASE WHEN tc.not_use = 0 THEN 1 ELSE 0 END),0) useTotal
+		from
+		t_device b
+		inner join t_channel tc on tc.dev_id = b.id
+		INNER JOIN t_org c on b.org_id = c.id
+		inner join pdf_org p on p.t_org_id = c.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		where
+		tc.channel_type in (${devType}) and tc.type_id = #{typeId} and c.parent_ids LIKE concat('%',#{orgId},'%') and ub.user_id = #{userId}
+	</select>
+
+
+	<select id="findDevTypeUse9" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		tc.name,
+		tc.id type,
+		count(b.id) AS total,
+		SUM(CASE WHEN b.not_use =
+		0 THEN 1 ELSE 0 END) AS useTotal
+		from
+		t_device b
+		INNER JOIN t_org c on b.org_id = c.id
+		left join t_code tc on
+		tc.id=b.dev_type and b.type_id = tc.type_id
+		where
+		c.parent_ids LIKE concat('%',#{orgId},'%') and b.dev_type in
+		(162,168,169,172)
+		group by b.dev_type
+
+		UNION All
+
+		select
+		tc.name,
+		tc.ch_type type,
+		count(tc.id) AS total,
+		SUM(CASE WHEN tc.not_use = 0 THEN 1 ELSE 0 END) AS useTotal
+		from
+		t_channel tc
+		inner join t_org o on o.id = tc.logic_org_id
+		left join t_code co on co.id = tc.ch_type and co.type_id = tc.type_id
+		where
+		o.parent_ids like CONCAT('%',#{orgId},'%') and tc.channel_type in (220,2,3) and tc.type_id in (4,9)
+		group by ch_type
+	</select>
+
+
+
+	<!-- 修改今日报警数据 -->
+	<select id="findAlarmType" resultType="com.alibaba.fastjson.JSONObject">
+
+		SELECT
+		      IFNULL(SUM(CASE WHEN e.dev_type = 162 THEN 1 ELSE 0 END),0) AS "door",      
+        IFNULL(SUM(CASE WHEN e.dev_type = 168 THEN 1 ELSE 0 END),0) AS "smoke",
+        IFNULL(SUM(CASE WHEN e.dev_type = 172 THEN 1 ELSE 0 END),0) AS "wather",
+        IFNULL(SUM(CASE WHEN e.dev_type = 169 THEN 1 ELSE 0 END),0) AS  "temperature",
+        IFNULL(SUM(CASE WHEN e.dev_type = 240 THEN 1 ELSE 0 END),0) AS "dianbiao",
+        IFNULL(SUM(CASE WHEN e.dev_type = 241 THEN 1 ELSE 0 END),0) AS  "dianliu"
+
+		from t_alarm_log a
+		INNER JOIN t_channel b on a.ch_id = b.id
+		INNER JOIN t_device e on e.id = b.dev_id
+		INNER JOIN t_org d on
+		e.org_id = d.id
+		inner join pdf_org p on p.t_org_id = d.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		<where>
+			ub.user_id =#{userId}
+			<if test="orgId != null and orgId != ''">
+				AND d.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+			 and a.occur_time &gt;= DATE_FORMAT(NOW(),'%y-%m-%d') 
+		</where>
+	</select>
+
+	<select id="countPDF" resultType="String">
+		select
+		COUNT(1) from t_org d
+		inner join pdf_org p on p.t_org_id = d.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		<where>
+			ub.user_id =#{userId}
+			<if test="orgId != null and orgId != ''">
+				AND parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+			<if test="type != null and type != ''">
+				AND type = #{type}
+			</if>
+		</where>
+	</select>
+
+	<select id="countAlarmPDF" resultType="String">
+		select
+		sum(
+		case when
+		(select MAX(c.warn) from t_device a inner JOIN t_channel b on b.dev_id = a.id
+		inner JOIN t_real_data
+		c on c.id = b.id where
+		a.org_id = o.id) >0 then 1 else 0 end)
+		from t_org o
+		inner join pdf_org p on p.t_org_id = o.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		<where>
+			ub.user_id =#{userId}
+			<if test="orgId != null and orgId != ''">
+				AND o.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+			<if test="type != null and type != ''">
+				AND o.type = #{type}
+			</if>
+		</where>
+	</select>
+
+
+	<select id="findLastAlarm" resultType="Date">
+
+		SELECT MAX(occur_time) from t_alarm_log a
+		INNER JOIN t_channel b on a.ch_id = b.id
+		inner join t_device td on td.id= b.dev_id
+		INNER JOIN t_org c on c.id = td.org_id
+		inner join pdf_org p on p.t_org_id = c.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		<where>
+			ub.user_id = #{userId}
+			<if test="orgId != null and orgId != ''">
+				AND c.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+		</where>
+	</select>
+
+	<select id="findAccessOpen" resultType="com.jeeplus.modules.homepage.entity.Statistics">
+		SELECT
+		sum(case WHEN tr.real_value = 1 THEN 1 ELSE 0 END) AS useTotal,
+		count(*) total
+		from
+		t_device a inner join t_device_detail b on a.id = b.id
+		left join t_org c on c.id = a.org_id
+		inner join pdf_org p on p.t_org_id = c.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		left join t_channel tc on tc.dev_id = a.id
+		left join t_real_data tr on tr.id = tc.id
+		<where>
+			ub.user_id =#{userId} and
+			a.dev_type = 162 and tc.ch_type= 5 and tc.type_id = 2
+			<if test="orgId != null and orgId != ''">
+				AND c.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+		</where>
+	</select>
+
+	<select id="doorList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		IFNULL(a.addr,'正大门') addr,
+		c.name orgName,
+		tr.real_time updateDate,
+		DATE_FORMAT(tr.real_time,'%Y/%m/%d %H:%i:%s') startTime
+		from
+		t_device a
+		inner join t_device_detail b on a.id = b.id
+		left join t_org c on c.id = a.org_id
+		left join t_channel tc on tc.dev_id = a.id
+		left JOIN t_real_data tr on tr.id = tc.id
+		left join pdf_org po on po.t_org_id = c.id
+		LEFT JOIN sys_user_bureau ub on ub.bureau_id = po.bureau_id
+		<where>
+			ub.user_id =#{userId} and
+			a.dev_type = 162 and tc.ch_type= 5 and tc.type_id = 2
+			<if test="orgId != null and orgId != ''">
+				AND c.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+		</where>
+	</select>
+
+	<select id="findHumitureRanking" resultType="com.alibaba.fastjson.JSONObject">
+		select
+		FORMAT((max(b.real_value)-param2)/param1,param0) real_value,
+		c.name orgName
+		from
+		t_device td
+		INNER JOIN t_channel a on td.id=a.dev_id
+		INNER JOIN (SELECT * from t_real_data ORDER BY real_value desc) b on a.id = b.id
+		INNER JOIN t_org c on c.id = td.org_id
+		inner join pdf_org p on p.t_org_id = c.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		<where>
+			ub.user_id =#{userId}
+			<if test="orgId != null and orgId != ''">
+				AND c.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+			and a.ch_type =#{chType} and c.type = 5 and td.dev_type = 169
+			GROUP BY c.id
+			order by
+			FORMAT((max(b.real_value)-param2)/param1,param0),c.id
+			limit 0,5
+		</where>
+	</select>
+
+	<select id="findAlarmTrend" resultType="com.alibaba.fastjson.JSONObject">
+		select
+		DATE_FORMAT(#{timeStart}, '%Y-%m-%d') as date,
+		IFNULL(sum(case when a.dev_type = 172 then 1 ELSE 0 END),0) AS yangan,
+		IFNULL(sum(case when a.dev_type = 162 then 1 ELSE 0 END),0) AS	menjin,
+		IFNULL(sum(case when a.dev_type = 169 then 1 ELSE 0 END),0) AS wendu,
+		IFNULL(sum(case when a.dev_type = 240 then 1 ELSE 0 END),0) AS dianbiao,
+		IFNULL(sum(case when a.dev_type = 241 then 1 ELSE 0 END),0) AS dianliu,
+		IFNULL(sum(case when a.dev_type = 168 then 1 ELSE 0 END),0) AS shuijin
+		from t_device a
+		INNER JOIN t_channel b on a.id =b.dev_id
+		INNER JOIN t_alarm_log c on c.ch_id = b.id
+		INNER JOIN t_org d on d.id = a.org_id
+		inner join pdf_org p on p.t_org_id = d.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		where
+		DATE_FORMAT(occur_time, '%Y-%m-%d') = DATE_FORMAT(#{timeStart}, '%Y-%m-%d')
+		AND d.parent_ids LIKE concat('%',#{orgId},'%') and ub.user_id = #{userId}
+	</select>
+
+	<!-- <select id="findAlarmTrend" resultType="com.alibaba.fastjson.JSONObject"> -->
+	<!-- SELECT b.date,IFNULL(yangan,0) AS yangan, -->
+	<!-- IFNULL(menjin,0) AS menjin, -->
+	<!-- IFNULL(wendu,0) AS wendu, -->
+	<!-- IFNULL(fengji,0) AS fengji, -->
+	<!-- IFNULL(shuijin,0) AS shuijin -->
+	<!-- from -->
+	<!-- (SELECT -->
+	<!-- SUBSTRING(`occur_time`, 1, -->
+	<!-- 10) AS day, -->
+	<!-- sum(case when d.dev_type = 1004 then 1 ELSE 0 END) AS yangan, -->
+	<!-- sum(case when d.dev_type = 1006 then 1 ELSE 0 -->
+	<!-- END) AS menjin, -->
+	<!-- sum(case when d.dev_type = 203 then 1 ELSE 0 END) AS wendu, -->
+	<!-- sum(case when d.dev_type = 220 then 1 ELSE 0 -->
+	<!-- END) AS fengji, -->
+	<!-- sum(case when d.dev_type = 160 then 1 ELSE 0 END) AS shuijin -->
+	<!-- FROM t_alarm_log a -->
+	<!-- INNER JOIN t_channel b on -->
+	<!-- a.ch_id = b.id -->
+	<!-- INNER JOIN t_org c on c.id = b.logic_org_id -->
+	<!-- INNER JOIN t_device d on d.id = b.dev_id -->
+	<!-- WHERE occur_time -->
+	<!-- BETWEEN DATE_FORMAT(#{timeStart}, '%Y-%m-%d') AND DATE_FORMAT(#{timeStop}, '%Y-%m-%d') -->
+	<!-- AND c.parent_ids LIKE -->
+	<!-- concat('%',#{orgId},'%') -->
+	<!-- GROUP BY day) a -->
+	<!-- RIGHT JOIN -->
+	<!-- (SELECT -->
+	<!-- DATE_FORMAT( -->
+	<!-- ADDDATE( -->
+	<!-- #{timeStart}, -->
+	<!-- INTERVAL @d DAY -->
+	<!-- ), -->
+	<!-- '%Y-%m-%d' -->
+	<!-- ) -->
+	<!-- AS date ,@d :=@d + 1 day -->
+	<!-- FROM -->
+	<!-- t_device, -->
+	<!-- (SELECT @d := 0) temp -->
+	<!-- WHERE -->
+	<!-- ADDDATE( -->
+	<!-- #{timeStart}, -->
+	<!-- INTERVAL @d DAY -->
+	<!-- ) &lt;= -->
+	<!-- DATE_FORMAT(#{timeStop}, '%Y-%m-%d') -->
+	<!-- ORDER BY -->
+	<!-- day) b on a.day = b.date GROUP BY b.date -->
+	<!-- </select> -->
+
+	<select id="sandTable" resultType="com.jeeplus.modules.homepage.entity.SandTable">
+		select
+		a.id,
+		a.parent_id AS parentId,
+		a.name,
+		e.name AS parentName,
+		a.type,
+		b.ch_type AS devType,
+		c.occur_time AS occurTime,
+		d.proc_time AS procTime
+		from t_org a
+		LEFT JOIN t_channel b on a.id = b.logic_org_id
+		LEFT JOIN (SELECT * FROM t_alarm_log
+		where status != 3) c on c.ch_id = b.id
+		LEFT JOIN (SELECT * from t_fault_log where status != 3) d on c.ch_id = d.id
+		LEFT
+		JOIN t_org e on e.id = a.parent_id
+		<where>
+			and a.type = 5
+			<if test="orgId != null and orgId != ''">
+				AND a.parent_ids LIKE concat('%',#{orgId},'%')
+			</if>
+		</where>
+		ORDER BY a.type
+	</select>
+
+	<select id="sandTable1" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT concat(o.id) id, o.name ,o.parent_id parentId,t.name parentName,t.type
+		parentType,
+
+		(select FORMAT((MAX(c.real_value)-param2)/param1,param0) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN
+		t_real_data c on c.id = b.id where a.org_id = o.id and a.dev_type = 162 and ch_type = 5) doorValue,
+
+		(select MAX(c.warn) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN t_real_data c on c.id = b.id where
+		a.org_id = o.id and a.dev_type = 162) doorWarn,
+
+		(select MAX(c.warn) from t_device a left JOIN t_channel b on b.dev_id =
+		a.id
+		LEFT JOIN t_real_data c on c.id = b.id where a.org_id = o.id and a.dev_type = 172) smokeWarn,
+
+		(select
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN
+		t_real_data c on c.id = b.id where a.org_id = o.id and a.dev_type = 169 and ch_type = 101) wenduValue,
+
+		(select
+		MAX(c.warn) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN t_real_data c on c.id = b.id where
+		a.org_id = o.id and a.dev_type = 169 and ch_type = 101) wenduWarn,
+
+		(select
+		FORMAT((MAX(c.real_value)-param2)/param1,param0) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN
+		t_real_data c on c.id = b.id where a.org_id = o.id and a.dev_type = 169 and ch_type = 102) shiduValue,
+
+		(select MAX(c.warn) from t_device a left JOIN t_channel b on b.dev_id = a.id
+		LEFT JOIN t_real_data c on c.id = b.id where
+		a.org_id = o.id and a.dev_type = 169 and ch_type = 102) shiduVarn,
+
+		(select MAX(c.warn) from t_device a left JOIN
+		t_channel b on b.dev_id = a.id
+		LEFT JOIN t_real_data c on c.id = b.id where a.org_id = o.id and (a.dev_type in(162,172)
+		or (a.dev_type=169 and b.ch_type
+		in(101,102)))) allVarn
+
+		from t_org o
+		inner join t_org t on t.id = o.parent_id
+		inner join pdf_org p on p.t_org_id = o.id
+		inner join sys_user_bureau ub on ub.bureau_id = p.bureau_id
+		where ub.user_id = #{userId} and
+		o.type = 5 AND o.parent_ids LIKE
+		concat('%',#{orgId},'%') ORDER BY o.parent_id
+	</select>
+
+	<select id="getOrgList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select code orgId,
+		CONCAT(id) id,
+		name,
+		concat(parent_id) parentId,
+		type from t_org o
+		where code like '1035%' and type in (2,3,4) order by type
+	</select>
+
+
+
+
+	<select id="getBureauIds" resultType="com.jeeplus.common.persistence.MapEntity">
+		select CONCAT(eb.parent_ids,eb.id) pIds,
+		eb.id
+		from pdf_electricity_bureau eb
+		inner join (select bureau_id from pdf_org
+		GROUP BY bureau_id) org on org.bureau_id = eb.id
+		<if test="userId != null and userId !=1">
+			inner join sys_user_bureau ub on eb.id = ub.bureau_id
+		</if>
+		<where>
+			<if test="userId != null and userId !=1">
+				ub.user_id = #{userId}
+			</if>
+		</where>
+	</select>
+
+	<select id="getOrgListByBureauId" resultType="com.jeeplus.common.persistence.MapEntity">
+		      select
+        concat(o.id) id,
+        concat(po.bureau_id) pId,
+        o.name,
+        o.type,
+        o.code,
+        u.name userName,
+        u.mobile,
+        po.address,
+        o.coords_x coordsX,
+        o.coords_y coordsY,    
+        
+         IFNULL(m.real_value,'')  status,
+         0 warn,
+         0 chId
+        
+        from pdf_org po 
+        inner join t_org o on po.t_org_id = o.id 
+        left join pdf_principal pp on pp.pdf_id = o.id
+        LEFT JOIN sys_user u on u.id = pp.user_id
+        inner JOIN sys_user_bureau ub on ub.bureau_id = po.bureau_id
+        left join 
+        (select r.real_value,d.org_id  from t_device d left join t_channel c on c.dev_id = d.id 
+        LEFT JOIN t_real_data r on r.id = c.id  where d.dev_type= 184 and c.ch_no = 24 having 1) m on m.org_id = o.id
+        <where>
+            ub.user_id  = #{userId}  
+        <if test="bureauId !=null and bureauId !=''">
+         and po.bureau_id = #{bureauId}
+        </if>
+        <if test="name !=null and name !=''">
+         and o.name like concat('%',#{name},'%')
+        </if>
+        </where>        
+        GROUP BY o.id   order by o.create_date desc 
+	</select>
+
+	<select id="getOrgListByPId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(eb.id) id,
+		concat(eb.parent_id) pId,
+		eb.name,
+		eb.type,
+		eb.code,
+		1 status
+		from pdf_electricity_bureau eb
+		where eb.id in (${pIds})
+	</select>
+
+
+	<select id="getBureauListByHome" resultType="com.jeeplus.common.persistence.MapEntity">
+		select u.id,
+		parent_id parentId,
+		name,
+		code,
+		type,
+		case when e.bureau_id
+		is null then 0 else 1 end state
+
+		from
+		(
+		select * from pdf_electricity_bureau where FIND_IN_SET(id,(select GROUP_CONCAT(eb.parent_ids,eb.id)
+		from
+		pdf_electricity_bureau eb inner join sys_user_bureau ub on ub.bureau_id = eb.id
+		where ub.user_id = #{userId}))
+		) u
+		LEFT JOIN
+		(select * from sys_user_bureau where user_id = #{userId}) e on e.bureau_id = u.id
+	</select>
+
+
+
+</mapper>

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.ElectricityUnitDao">
+
+
+	<select id="selectElectricityUnit" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		concat(seu.id) id,
+		bureau_id
+		bureauId,
+		pe.name bureauName,seu.name,
+		concat(seu.parent_id) pId,
+		measure_area area,
+		number,
+		seu.order_no orderNo,
+		(select count(*)  from star_unit_loop_org where unit_id = seu.id) bindLoopCount,
+		DATE_FORMAT(seu.create_date,'%Y-%m-%d %H:%i:%s')  createDate
+		from
+		star_electricity_unit seu
+		left join pdf_electricity_bureau pe on pe.id =
+		seu.bureau_id
+		<where>
+			<if test="name !=null and name !=''">
+				seu.name like concat('%',#{name},'%')
+			</if>
+		</where>
+		order by seu.order_no,seu.create_date desc,id desc
+	</select>
+	
+	<update id="detele">
+		delete from star_electricity_unit where id = #{id}
+	</update>
+
+	<update id="update">
+		update star_electricity_unit set order_no = #{orderNo} where id = #{id}
+	</update>
+
+	<update id="insertElectricityUnit">
+		insert into
+		star_electricity_unit
+		(id,name,code,parent_id,parent_ids,measure_area,number,order_no,bureau_id,create_date)
+		values
+		(null,#{name},#{code},#{parentId},#{parentIds},#{area},#{number},#{orderNo},#{bureauId},now())
+	</update>
+
+	<update id="updateElectricityUnit">
+		update
+		star_electricity_unit
+		set
+		name = #{name},
+		code = #{code},
+		parent_id = #{parentId},
+		parent_ids =
+		#{parentIds},
+		bureau_id = #{bureauId},
+		measure_area = #{area},
+		number = #{number},
+		order_no = #{orderNo}
+		where id = #{id}
+	</update>
+
+	<update id="insertUnitLoop">
+		insert into
+		star_unit_loop_org(id,unit_id,loop_org_id,not_deduction,not_public,loop_area,loop_number,proportion,son_loop_ids,type)
+		values
+		(#{id},#{unitId},#{loopOrgId},#{notDeduction},#{notPublic},#{loopArea},#{loopNumber},#{proportion},#{sonLoopIds},#{type})
+	</update>
+
+
+	<!-- 获取下拉框 -->
+	<select id="selectLoopOrg" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(o.id) id,name,loop_type loopType,ifnull(su.not_deduction,'')
+		notDeduction,ifnull(su.not_public,'') notPublic,concat(o.parent_id) parentId,
+		ifnull(su.type,'') type,
+		case when su.type = 3 then
+		(select ROUND(1 -(SUM(proportion)),2) from star_unit_loop_org where loop_org_id = o.id) else '1'
+		end lev,
+		unitIds
+
+		from
+		t_org o
+		left
+		join
+		(select *,ifnull(GROUP_CONCAT(unit_id),'') unitIds from
+		star_unit_loop_org GROUP BY loop_org_id ) su
+		on
+		su.loop_org_id = o.id
+		where
+		o.type &gt;=5 ORDER BY order_no;
+	</select>
+
+
+	<select id="getTypes" resultType="com.jeeplus.common.persistence.MapEntity">
+		select ch_type type,name from star_net_code
+		<where>
+			`status` = 39
+			<if test="type !=null and type !=''">
+				and ch_type = #{type}
+			</if>
+		</where>
+	</select>
+
+	<!-- 联动回路列表 -->
+	<select id="getUnitLoopList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select concat(e.id) unitId, sl.id,o.name orgName,concat(o.id)
+		loopOrgId,e.name,sl.not_deduction
+		notDeduction,sl.not_public
+		notPublic,proportion,son_loop_ids sonLoopIds,
+		concat(sl.type) type,
+		case when sl.type = 1 then loop_area
+		when sl.type= 2
+		then loop_number
+		when sl.type = 3 then proportion else '' end loopValue,
+		case when sl.type = 3 then
+		(
+		select ROUND(1 -(SUM(proportion)),2) from star_unit_loop_org where loop_org_id = o.id) else '1'
+		end lev
+		from
+		star_electricity_unit e
+		inner join star_unit_loop_org sl on sl.unit_id = e.id
+		left join t_org o on o.id =
+		sl.loop_org_id
+		where sl.unit_id = #{unitId} order by sl.id
+	</select>
+
+	<update id="deleteUnitLoopByLoopId">
+		delete from star_unit_loop_org where id = #{id}
+	</update>
+
+	<select id="getLoopsBypId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select o.name loopName from t_org o
+		where parent_id = #{parentId}
+	</select>
+
+	<update id="deleteElectricityUnit">
+		delete from star_electricity_unit where id = #{unitId};
+		delete from star_unit_loop_org where unit_id = #{unitId};
+	</update>
+
+
+	<select id="getVauleByLoopId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		s.id,
+		case when type = 1 and loop_area != 0 then loop_area
+		when type = 1 and loop_area = 0 then st.measure_area
+		when type= 2 and loop_number = 0 then st.number
+		when type= 2 and loop_number != 0 then loop_number
+
+		else 1 end loopValue
+		from
+		star_unit_loop_org s
+		inner join star_electricity_unit st on st.id = s.unit_id
+		where loop_org_id = #{loopId} and type != 3
+	</select>
+	
+     <!-- 	获取用电单位下的公共回路 -->
+	<select  id="getLoopsByunitId" resultType="java.lang.String">	
+	   select loop_org_id loopOrgId from star_unit_loop_org where unit_id = #{unitId};	   
+	</select>
+
+
+	<update id="updateLoopOrg">
+		update star_unit_loop_org set proportion = ROUND(#{value}/#{values},3) where id = #{id}
+	</update>
+
+</mapper>

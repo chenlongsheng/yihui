@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.enterprise.dao.THistoryDataFinalDao">
+    
+	<sql id="tHistoryDataFinalColumns">
+		a.id AS "id",
+		a.ch_id AS "chId",
+		a.history_value AS "historyValue",
+		a.history_time AS "historyTime",
+		date_format(a.history_time,'%Y-%c-%d %H:%i:%s')  AS "historyTimeStr"
+		
+	</sql>
+	
+	<sql id="tHistoryDataFinalJoins">
+	</sql>
+	
+    
+	<select id="get" resultType="THistoryDataFinal" >
+		SELECT 
+			<include refid="tHistoryDataFinalColumns"/>
+		FROM t_history_data_final a
+		<include refid="tHistoryDataFinalJoins"/>
+		WHERE a.id = #{id}
+	</select>
+	
+	<select id="findList" resultType="THistoryDataFinal" >
+		SELECT 
+			<include refid="tHistoryDataFinalColumns"/>
+		FROM t_history_data_final a
+		<include refid="tHistoryDataFinalJoins"/>
+		<where>
+			
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="findAllList" resultType="THistoryDataFinal" >
+		SELECT 
+			<include refid="tHistoryDataFinalColumns"/>
+		FROM t_history_data_final a
+		<include refid="tHistoryDataFinalJoins"/>
+		<where>
+			
+		</where>		
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<insert id="insert">
+		INSERT INTO t_history_data_final(
+			id,
+			ch_id,
+			history_value,
+			history_time
+		) VALUES (
+			#{id},
+			#{chId},
+			#{historyValue},
+			#{historyTime}
+		)
+	</insert>
+	
+	<update id="update">
+		UPDATE t_history_data_final SET 	
+			ch_id = #{chId},
+			history_value = #{historyValue},
+			history_time = #{historyTime}
+		WHERE id = #{id}
+	</update>
+	
+	
+	<!--物理删除-->
+	<update id="delete">
+		DELETE FROM t_history_data_final
+		WHERE id = #{id}
+	</update>
+	
+	<!--逻辑删除-->
+	<update id="deleteByLogic">
+		UPDATE t_history_data_final SET 
+			del_flag = #{DEL_FLAG_DELETE}
+		WHERE id = #{id}
+	</update>
+	
+	
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="THistoryDataFinal" statementType="STATEMENT">
+		select * FROM t_history_data_final  where ${propertyName} = '${value}'
+	</select>
+	
+	
+	
+	<sql id="tSenceHistoryDataColumns">
+		hd.id AS "id",
+		hd.ch_id AS "chId",
+		hd.history_value AS "historyValue",
+		hd.history_time AS "historyTime",
+		date_format(hd.history_time,'%Y-%c-%d %H:%i:%s')  AS "historyTimeStr"
+	</sql>
+	
+	
+	<select id="getChannelHistoryChartData" resultType="THistoryDataFinal">
+		SELECT 
+		<include refid="tHistoryDataFinalColumns"/> 
+		FROM t_history_data_final a
+		WHERE 
+		a.ch_id = #{id} 
+		AND 
+		a.history_time > date_sub(curdate(),interval #{loadDataRange} - 1 day)
+		order by a.history_time 
+	</select>
+	
+	<select id="getChannelHistoryChartDataBySenceId" resultType="THistoryDataFinal">
+		SELECT
+		<include refid="tSenceHistoryDataColumns"/> 
+		FROM t_history_data_final hd 
+		INNER JOIN t_channel channel
+		ON hd.ch_id = channel.id
+		INNER JOIN t_org o
+		ON channel.logic_org_id = o.id
+		WHERE o.code like CONCAT( (SELECT oo.code FROM t_org oo WHERE oo.id = #{id}) ,'%')
+		AND hd.history_time > date_sub(curdate(),interval #{loadDataRange} - 1 day)
+		order by hd.history_time 
+	</select>
+	
+	
+	<select id="getChannelHistoryChartDataBySenceIdAndTime" resultType="com.jeeplus.modules.settings.entity.THistoryDataFinal">
+		SELECT
+		<include refid="tSenceHistoryDataColumns"/> 
+		FROM t_history_data_final hd 
+		INNER JOIN t_channel channel
+		ON hd.ch_id = channel.id
+		INNER JOIN t_org o
+		ON channel.logic_org_id = o.id
+		WHERE o.code like CONCAT((SELECT oo.code FROM t_org oo WHERE oo.id = #{id}) ,'%')
+		AND hd.history_time BETWEEN date_format(#{startTime}, '%Y-%m-%d %H:%I:%S') AND date_format(#{endTime}, '%Y-%m-%d %H:%I:%S')
+		order by hd.history_time 
+	</select>
+	
+	
+</mapper>

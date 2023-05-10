@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.sys.dao.LogDao">
+    
+	<select id="findLogList" resultType="com.jeeplus.common.persistence.MapEntity">
+	  select
+	   concat(a.id) id,
+	   a.title,
+	   DATE_FORMAT(a.create_date,'%y-%m-%d %H:%i:%s') createDate,
+	   a.params,
+	   b.name,
+	   b.login_name loginName 
+	  from 
+	  sys_log a
+	   left join sys_user b on a.create_by = b.id
+	   <where>
+	   (b.parent_ids like CONCAT('%',#{userId},'%') or b.id = #{userId})
+	   <if test="id != null and id != ''">
+			AND a.id = #{id}
+		</if>
+		<if test="params != null and params != ''">
+			AND a.params LIKE CONCAT('%', #{params}, '%')
+		</if>
+		<if test="userId != null and userId != ''">
+			AND a.create_by = #{userId}
+		</if>
+		<if test="beginDate != null and beginDate != ''">
+			AND a.create_date &gt;= #{beginDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			AND a.create_date &lt;= #{endDate}
+		</if>
+		</where>	
+		ORDER BY a.create_date DESC
+	</select>
+	
+	<select id="getParamsList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select params from sys_log GROUP BY params
+	</select>
+	
+	<update id="delete">
+		DELETE FROM sys_log 
+		WHERE id = #{id}
+	</update>
+	
+	<update id="empty">
+		DELETE FROM sys_log 
+	</update>
+	
+	<insert id="saveLog">
+		INSERT INTO sys_log(
+			id, 
+			type, 
+			title,
+			create_by, 
+			create_date, 
+			remote_addr, 
+			user_agent, 
+			request_uri, 
+			method, 
+			params, 
+			exception
+		) VALUES (
+			#{id}, 
+			#{type}, 
+			#{title}, 
+			#{createBy.id}, 
+			#{createDate}, 
+			#{remoteAddr}, 
+			#{userAgent}, 
+			#{requestUri}, 
+			#{method}, 
+			#{params}, 
+			#{exception}
+		)
+	</insert>
+	
+</mapper>

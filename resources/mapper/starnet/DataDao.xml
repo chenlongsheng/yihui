@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.DataDao">
+
+	<select id="getLoopList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		tog.id orgId,
+		tog.name orgName
+		FROM t_org tog
+		INNER JOIN t_channel tc
+		ON tog.id = tc.logic_org_id		
+		WHERE 
+		tc.ch_type in (403,108)
+	</select>
+
+	<select id="getLoopElecChannelList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		tc.id,
+		tog.id orgId,
+		tc.name channelName,
+		tc.ch_type chType
+		FROM t_org tog
+		INNER JOIN t_channel tc
+		ON tog.id = tc.logic_org_id
+		WHERE 
+		tc.ch_type in (403,108)
+		 
+	</select>
+	
+	<select id="getLoopLatestElecData" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT *
+		FROM t_elec_history_data tehd
+		WHERE tehd.ch_id = #{chId}
+		ORDER BY tehd.time DESC
+		LIMIT 1
+	</select>
+	
+	<select id="getNewData" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		thdf.id,
+		thdf.ch_id,
+		thdf.history_value,
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') history_time,
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d') upload_date,
+		DATE_FORMAT(thdf.history_time,'%H:%i') upload_time		
+		FROM t_history_data_final thdf
+		WHERE thdf.ch_id = #{chId}
+		ORDER BY thdf.history_time DESC
+		LIMIT 1
+	</select>
+	
+	<select id="getNewDatas" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		thdf.id,
+		thdf.ch_id,
+		thdf.history_value,
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') history_time,
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d') upload_date,
+		DATE_FORMAT(thdf.history_time,'%H:%i') upload_time
+		FROM t_history_data_final thdf
+		WHERE thdf.ch_id = #{chId}
+		AND thdf.history_time >= #{historyTime}
+		GROUP BY thdf.ch_id,thdf.history_time
+		HAVING count(1) = 1
+		ORDER BY thdf.history_time
+	</select>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<select id="getChannelByOrgIdAndType" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT *
+		FROM t_channel tc
+		WHERE tc.logic_org_id = #{orgId}
+		AND tc.ch_type = #{type}
+	</select>
+	
+	<select id="getChannelMaxValueInADay" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT
+	thdf.id,
+	thdf.ch_id,
+	thdf.history_value historyValue,
+	DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') historyTime,
+	DATE_FORMAT(thdf.history_time,'%Y-%m-%d') upload_date,
+	DATE_FORMAT(thdf.history_time,'%H:%i') upload_time
+	FROM t_history_data_final thdf
+	WHERE thdf.history_value in (
+		SELECT max(thdf2.history_value) maxHistoryValue
+		FROM t_history_data_final thdf2
+		WHERE thdf2.ch_id = #{chId}
+		AND DATE_FORMAT(thdf2.history_time,'%Y-%m-%d') = #{todayDatetime}
+	)
+	AND thdf.ch_id = #{chId}
+	AND DATE_FORMAT(thdf.history_time,'%Y-%m-%d') = #{todayDatetime}	
+	LIMIT 1
+	</select>
+	
+	<select id="getChannelMinValueInADay" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT
+	thdf.id,
+	thdf.ch_id,
+	thdf.history_value historyValue,
+	DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') historyTime,	
+	DATE_FORMAT(thdf.history_time,'%Y-%m-%d') upload_date,
+	DATE_FORMAT(thdf.history_time,'%H:%i') upload_time
+	FROM t_history_data_final thdf
+	WHERE thdf.history_value in (
+		SELECT min(thdf2.history_value) maxHistoryValue
+		FROM t_history_data_final thdf2
+		WHERE thdf2.ch_id = #{chId}
+		AND DATE_FORMAT(thdf2.history_time,'%Y-%m-%d') = #{todayDatetime}
+	)
+	AND thdf.ch_id = #{chId}
+	AND DATE_FORMAT(thdf.history_time,'%Y-%m-%d') = #{todayDatetime}
+	LIMIT 1		
+	</select>
+	
+	
+	<select id="getChannelAVGValueInADay" resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT
+	avg(thdf.history_value) avgValue
+	FROM t_history_data_final thdf
+	WHERE 
+	thdf.ch_id = #{chId}
+	AND DATE_FORMAT(thdf.history_time,'%Y-%m-%d') = #{todayDatetime}
+	LIMIT 1		
+	</select>
+	
+	
+	
+	
+	<select id="getFirstMeterDataOfDay" resultType="java.lang.Double">
+	SELECT
+	thdf.history_value
+	FROM t_history_data_final thdf
+	WHERE 
+	thdf.ch_id = #{chId}
+	AND DATE_FORMAT(thdf.history_time,'%Y-%m-%d') = #{todayDatetime}
+	ORDER BY thdf.history_time
+	LIMIT 1
+	</select>
+	
+	<insert id="addMeterData">
+	insert into star_first_meter_data_of_day 
+	(loop_id,ch_id,value,record_date)
+	values
+	(#{orgId},#{chId},#{value},#{todayDatetime})
+	</insert>
+	
+	<select id="getMetryVlaueOfDate" resultType="com.jeeplus.common.persistence.MapEntity">
+	select
+	#{orgId} orgId,
+	thdf.history_value value,
+	abs(timestampdiff(second,thdf.history_time,DATE_FORMAT(#{recordDate},'%Y-%m-%d %H:%i'))) as absDiffValue
+	from t_history_data_final thdf
+	where
+	thdf.ch_id = #{chId}
+	and thdf.history_time 
+	between date_sub(DATE_FORMAT(#{recordDate},'%Y-%m-%d %H:%i'),interval 10 minute) 
+	and date_add(DATE_FORMAT(#{recordDate},'%Y-%m-%d %H:%i'),interval 10 minute)
+	order by absDiffvalue
+	limit 1	
+	</select>
+	
+	
+	<insert id="addJumpMetry">
+	insert into star_jump_meter 
+	(loop_id,ch_id,jump_time,normal)
+	values
+	(#{orgId},#{chId},now(),#{normal})
+	</insert>
+	
+</mapper>

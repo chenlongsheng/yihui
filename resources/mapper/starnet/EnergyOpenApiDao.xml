@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.EnergyOpenApiDao">
+
+	<select id="getLoopByPdfId" resultType="map">
+	SELECT too.id id 
+	FROM t_org too 
+	WHERE too.parent_ids like CONCAT( (SELECT CONCAT(too2.parent_ids,#{pdfId},',') FROM t_org too2 WHERE too2.id = #{pdfId}),'%')
+	</select>
+	
+	<select id="getLoopByOrgId" resultType="map">
+	SELECT too.id id 
+	FROM t_org too 
+	WHERE too.id = #{orgId}
+	</select>	
+	
+	
+	<select id="getLoopByUnitId" resultType="map">
+	SELECT sulo.loop_org_id id
+	FROM star_unit_loop_org sulo
+	WHERE sulo.unit_id = #{unitId}
+	</select>
+	
+	
+	
+	<select id="getAlarmList" resultType="map">
+	SELECT 
+	dd.name,
+	case 
+	when count is null 
+	then 0 
+	else count 
+	end count,
+	IFNULL(orgName,'') orgName  
+	FROM 
+	(
+	SELECT * 
+	FROM t_device 
+	WHERE dev_type not in (109,150) GROUP BY dev_type
+	) dd 
+	LEFT JOIN 
+	(
+	SELECT d.name,COUNT(*) count,d.dev_type,o.name orgName
+	FROM 
+	t_device  d
+	inner  join  t_channel c on c.dev_id = d.id
+	inner join t_org o on o.id = d.org_id 
+	inner join t_alarm_log a  on a.ch_id =  c.id
+	WHERE  (o.parent_ids like CONCAT('%',#{pdfId},'%') or o.id = #{pdfId})
+	GROUP BY dev_type
+	) tdd ON tdd.dev_type = dd.dev_type
+	</select>
+	
+	
+	
+	<select id="getLoopVoltage" resultType="map">
+	SELECT 
+	too.name loopName,
+	tc.name channelName,
+	trd.real_value realValue
+	FROM t_channel tc 
+	INNER JOIN t_real_data trd
+	ON tc.id = trd.id
+	INNER JOIN t_org too 
+	ON tc.logic_org_id = too.id
+	WHERE tc.logic_org_id = #{loopId}
+	AND tc.ch_type in (163,164,165)
+	</select>
+	
+	
+	
+	<select id="getLoopElectricity" resultType="map">
+	SELECT 
+	too.name loopName,
+	tc.name channelName,
+	trd.real_value realValue
+	FROM t_channel tc 
+	INNER JOIN t_real_data trd
+	ON tc.id = trd.id
+	INNER JOIN t_org too 
+	ON tc.logic_org_id = too.id
+	WHERE tc.logic_org_id = #{loopId}
+	AND tc.ch_type in (166,167,168)
+	</select>
+	
+	
+	
+	<select id="todayTotalEnergyConsumption" resultType="String">
+	SELECT SUM(tehd.value)
+	FROM t_elec_history_data tehd
+	WHERE tehd.ch_id in (
+		SELECT tc.id
+		FROM t_channel tc 
+		WHERE tc.logic_org_id in (
+						SELECT to1.id id
+						FROM t_org to1 
+						where to1.parent_id in (
+							SELECT too.id
+							FROM t_org too 
+							WHERE too.parent_id in (
+								SELECT tooo.id FROM t_org tooo WHERE tooo.type = 5
+							)
+						)
+		)
+		AND tc.ch_type in (403,108)
+	)
+	AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{day}
+	</select>
+	
+	
+	
+	<select id="todayTotalEnergyConsumptionByUnitId" resultType="String">
+	SELECT SUM(tehd.value)
+	FROM t_elec_history_data tehd
+	WHERE tehd.ch_id in (
+		SELECT tc.id
+		FROM t_channel tc 
+		WHERE tc.logic_org_id in (
+			(  SELECT seu.loop_org_id FROM star_unit_loop_org seu WHERE seu.unit_id = #{unitId}  )
+		)
+		AND tc.ch_type in (403,108)
+	)
+	AND DATE_FORMAT(tehd.time,'%Y-%m-%d') = #{day}
+	</select>	
+	
+	
+	<select id="deviceStateList" resultType="map">
+		SELECT 
+			too.name orgName,
+			tdd.online
+		from t_channel tc
+			inner join t_org too 
+			on tc.logic_org_id = too.id
+			inner join t_device_detail tdd
+			on tc.dev_id = tdd.id
+		where tc.ch_type = 403
+	</select>	
+	
+	
+	
+	<select id="getDeviceDetails" resultType="com.jeeplus.common.persistence.MapEntity">
+		
+		select 
+		CONCAT(m.id) id,
+		CONCAT(m.parent_id) parentId,
+		m.parent_ids parentIds,
+		m.name,
+		m.type,
+		m.order_no orderNo,
+		n.parentOrgName,
+		orgName,
+		mac,
+		busAddr,
+		online,
+		warn,
+		realValue,
+		realTime
+		
+		from 
+		(select *from t_org where parent_ids like '%7583%' or id = 7583) m
+		
+		left join                          
+		
+		(
+		select
+		d.id devId,
+		 o.id,
+		oo.name parentOrgName,
+		o.name orgName,
+		dd.online,
+		u.warn,
+		dd.mac,
+		dd.bus_addr busAddr,
+		 round((r.real_value-param2)/param1,2) realValue,
+		DATE_FORMAT(r.real_time,'%Y-%m-%d %H:%i:%s') realTime
+		
+		from t_device d 
+		inner join t_device_detail dd on dd.id = d.id
+		inner join t_channel c on c.dev_id = d.id
+		inner join t_org o on o.id = c.logic_org_id 
+		inner join t_org oo on oo.id = o.parent_id
+		inner join t_real_data r on r.id = c.id
+		left join 
+		(select ch.dev_id,max(r.warn) warn  from t_channel ch 
+		inner join t_real_data r on ch.id = r.id
+		inner join t_device td on td.id = ch.dev_id
+		where dev_type  = 240 GROUP BY td.id
+		) u on u.dev_id = d.id
+		
+		where c.ch_type = 403
+		) n 
+		on m.id = n.id ORDER BY m.code
+		
+
+	 </select>
+
+
+	
+	
+</mapper>

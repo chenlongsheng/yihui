@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.EnergySaveDao">
+
+	<select id="countMonitoring" parameterType="map" resultType="double">
+		select (case when sum(historyValue) is null then 0
+		else sum(historyValue) end ) as historyValue 
+		from (select
+		ch_id,max(history_value) historyValue
+		from (
+		select a.* from
+		t_history_data_final a
+		left join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join
+		pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id = #{type}
+		and DATE_FORMAT(a.history_time,'%Y/%m/%d')
+		&gt;=DATE_FORMAT(#{startDate},'%Y/%m/%d')
+		and DATE_FORMAT(a.history_time,'%Y/%m/%d')
+		&lt;=DATE_FORMAT(#{endDate},'%Y/%m/%d')
+		ORDER BY a.history_time desc) m 
+		GROUP BY
+		DATE_FORMAT(m.history_time,'%Y/%m/%d'),ch_id) aa
+	</select>
+
+	<select id="historyMonitoring" parameterType="map" resultType="map">
+		select sum(historyValue) historyValue,
+		DATE_FORMAT(history_time,'%Y-%m-%d') historyTime from (select
+		ch_id,max(history_value) historyValue,history_time from
+		(
+		select
+		a.* from t_history_data_final a
+		left join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type}
+		and
+		DATE_FORMAT(a.history_time,'%Y/%m/%d') &gt;=DATE_FORMAT(#{startDate},'%Y/%m/%d')
+		and
+		DATE_FORMAT(a.history_time,'%Y/%m/%d') &lt;=DATE_FORMAT(#{endDate},'%Y/%m/%d')
+		ORDER BY a.history_time desc)a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa GROUP BY history_time
+	</select>
+
+	<select id="getYesHour" parameterType="map" resultType="double">
+		select (case when sum(historyValue) is null then 0 else
+		sum(historyValue) end ) as historyValue from (select
+		ch_id,max(history_value) historyValue from
+		(select
+		a.* from
+		t_history_data_final a
+		left
+		join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join
+		pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id = #{type}
+		and DATE_FORMAT(history_time,'%Y/%m/%d %H')
+		=DATE_FORMAT(#{date},'%Y/%m/%d %H')
+		ORDER BY history_time desc )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id)
+		aa
+	</select>
+
+	<select id="getYesDay" parameterType="map" resultType="double">
+		select (case when sum(historyValue) is null then 0 else
+		sum(historyValue) end ) as historyValue from (select
+		ch_id,max(history_value) historyValue from
+		(select	a.* from t_history_data_final a
+		left join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type}
+		and DATE_FORMAT(history_time,'%Y/%m/%d')
+		=DATE_FORMAT(#{date},'%Y/%m/%d')
+		ORDER BY history_time desc )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa
+	</select>
+
+	<select id="getYesYear" parameterType="map" resultType="double">
+		select (case when sum(historyValue) is null then 0 else
+		sum(historyValue) end ) as historyValue from (select
+		ch_id,max(history_value) historyValue from
+		(select	a.* from t_history_data_final a
+		left join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type}
+		and DATE_FORMAT(history_time,'%Y/%m')
+		=DATE_FORMAT(#{date},'%Y/%m')
+		ORDER BY history_time desc )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa
+	</select>
+
+	<select id="countYearTop10" parameterType="map" resultType="map">
+		select (case when sum(historyValue) is null then 0
+		else sum(historyValue) end ) as historyValue,o.name from (select
+		ch_id,max(history_value) historyValue from
+		(select
+		a.* from t_history_data_final a
+		left join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type}
+		and DATE_FORMAT(history_time,'%Y')
+		=DATE_FORMAT(#{date},'%Y')
+		ORDER BY history_time desc )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa left
+		join t_channel c on aa.ch_id = c.id
+		LEFT JOIN t_device d on c.dev_id = d.id LEFT JOIN t_org o on d.org_id = o.id GROUP
+		BY o.id ORDER BY historyValue desc
+		limit 0,10
+	</select>
+
+	<select id="countYearMonByHour" parameterType="map" resultType="map">
+		select (case when sum(historyValue) is null then
+		0 else sum(historyValue) end ) as historyValue ,history_time historyTime
+		from (select ch_id,max(history_value)
+		historyValue,HOUR(history_time) as history_time
+		from (select
+		a.* from t_history_data_final a
+		left
+		join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type} and DATE_FORMAT(history_time,'%Y') =DATE_FORMAT(#{date},'%Y')
+		ORDER BY history_time
+		desc
+		)a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id,HOUR(history_time)) aa GROUP BY history_time
+	</select>
+
+	<select id="countYearMonByMonth" parameterType="map" resultType="map">
+		select (case when sum(historyValue) is null then
+		0 else sum(historyValue) end ) as historyValue ,history_time historyTime
+		from (select ch_id,max(history_value)
+		historyValue,MONTH(history_time) as history_time
+		from (select
+		a.* from t_history_data_final a
+		left
+		join t_channel b on b.id = a.ch_id
+		left join
+		t_device c on c.id = b.dev_id
+		left join pdf_dev_code d on d.code_id =
+		c.dev_type and d.code_type_id = c.type_id
+		left join
+		t_org e on e.id = c.org_id
+		where (e.id = #{orgId} or e.parent_ids like concat('%',#{orgId},'%'))
+		and d.id =
+		#{type} and DATE_FORMAT(history_time,'%Y') =DATE_FORMAT(#{date},'%Y')
+		ORDER BY history_time
+		desc
+		)a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id,MONTH(history_time)) aa GROUP BY history_time
+	</select>
+</mapper>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.ConsumptionWithLossDao">
+	
+	<select id="getLossDataByLoopIdAndMonth" resultType="com.jeeplus.modules.starnet.entity.ConsumptionWithLoss">
+		SELECT 
+		id,
+		loop_org_id loopOrgId,
+		month,
+		consumption_with_loss consumptionWithLoss,
+		consumption
+		FROM
+		star_consumption_with_loss
+		WHERE 
+		loop_org_id = #{loopOrgId}
+		AND
+		month = #{month}
+	</select>
+	
+	
+	<insert id="insert">
+		insert into star_consumption_with_loss 
+		(
+		id,
+		loop_org_id,
+		month,
+		consumption,
+		consumption_with_loss
+		) 
+		values 
+		(
+		#{id},
+		#{loopOrgId},
+		#{month},
+		#{consumption},
+		#{consumptionWithLoss}
+		)
+	</insert>
+
+	<update id="update">
+		update
+		star_consumption_with_loss
+		set
+		consumption = #{consumption},
+		consumption_with_loss = #{consumptionWithLoss}
+		where id = #{id}
+	</update>
+
+
+	<delete id="delete">
+		delete 
+		from star_consumption_with_loss
+		where id = #{id}
+	</delete>
+
+
+</mapper>

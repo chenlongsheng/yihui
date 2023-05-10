@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.PdfMainpageDao">
+
+<!-- 
+	public Map<String, Object> getPdfBaseInfo(@Param("pdfId")String pdfId);
+	public Map<String, Object> getLightData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getHumTempData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getWaterData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getDoorData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getSmokeData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getHighVoltageData(@Param("pdfId")String pdfId);
+	public Map<String, Object> getLowVltageData(@Param("boxId")String boxId);
+	public Map<String, Object> getSplitSegmentData(@Param("boxId")String boxId);
+	public Map<String, Object> getReturnPathData(@Param("boxId")String boxId);
+	public List<Map<String, Object>> getEleBoxList(@Param("pdfId")String pdfId);
+ -->
+
+    <select id="notProcAlarmList" parameterType="String" resultType="map">
+    	SELECT t.*,channel.*
+    	FROM t_alarm_log t
+    	INNER JOIN t_channel channel
+    	ON t.ch_id = channel.id 
+    	WHERE t.status = 1
+    	AND t.ch_id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    </select>
+
+    <select id="getLightData" parameterType="String" resultType="map">
+	
+    </select>
+    
+    <select id="getHumData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value,
+		tap.high_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		LEFT JOIN t_alarm_policy tap
+		ON channel.id = tap.ch_id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 102
+    	AND channel.type_id = 3
+    </select>
+    
+    <select id="getTempData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value,
+		tap.high_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		LEFT JOIN t_alarm_policy tap
+		ON channel.id = tap.ch_id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 101
+    	AND channel.type_id = 3
+    </select>    
+    
+    <select id="getWaterData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 2
+    	AND channel.type_id = 2
+    	ORDER BY channel.ch_no
+    </select>
+    
+    <select id="getWaterDeepData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 148
+    	AND channel.type_id = 3
+    	ORDER BY channel.ch_no
+    </select>
+    
+    
+    <select id="getWaterStringData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 149
+    	AND channel.type_id = 3
+    	ORDER BY channel.ch_no
+    </select>    
+    
+    
+    <select id="getDoorData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 5
+    	AND channel.type_id = 2
+    	ORDER BY channel.ch_no
+    </select>
+    
+    
+    <select id="getDoorOpenOverTimeData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 23
+    	AND channel.type_id = 2
+    	ORDER BY channel.ch_no
+    </select>
+    
+    
+    <select id="getDoorOpenTimeData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 145
+    	AND channel.type_id = 3
+    	ORDER BY channel.ch_no
+    </select>
+    
+	<select id="getSmokeData" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.id in ( 
+    		SELECT tc.id 
+    		FROM t_channel tc 
+    		INNER JOIN t_org oo 
+    		on tc.logic_org_id = oo.id 
+    		WHERE oo.code like concat(#{code},'%') 
+    	)
+    	AND channel.ch_type = 4
+    	AND channel.type_id = 2	
+    	ORDER BY channel.ch_no
+    </select>
+    
+	<select id="getHighVoltageData" parameterType="String" resultType="map">
+	
+    </select>
+    
+	<select id="getLowVltageData" parameterType="String" resultType="map">
+	
+    </select>
+	
+	<select id="getSplitSegmentData" parameterType="String" resultType="map">
+	
+    </select>
+	
+	<select id="getReturnPathData" parameterType="String" resultType="map">
+	
+    </select>
+    
+    <select id="getEleBoxList" parameterType="String" resultType="list">
+	
+    </select>
+    
+    <select id="getLoraDeviceByTypeAndCode" parameterType="String" resultType="map">
+		SELECT 
+		t.id,
+		t.name
+		FROM t_device t
+		INNER JOIN t_org oo
+		ON t.org_id = oo.id
+		WHERE 
+		t.dev_type = ${devType}
+		AND
+		oo.code like CONCAT(#{code},'%')
+    </select>
+    
+    <select id="getLoraChannelDataByDeviceId" parameterType="String" resultType="map">
+		SELECT 
+		channel.id,
+		channel.name,
+		channel.ch_type,
+		channel.ch_no,
+		trd.real_value
+		FROM t_channel channel 
+		LEFT JOIN t_real_data trd 
+		ON channel.id = trd.id
+		WHERE channel.dev_id = #{deviceId}
+    	ORDER BY channel.ch_no
+    </select>
+    
+</mapper>

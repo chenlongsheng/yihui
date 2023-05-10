@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.alarmReport.dao.AlarmReportDao">
+
+    <resultMap id="countMap" type="map">
+        <id property="id" column="id" javaType="String" />
+        <id property="orgId" column="orgId" javaType="String" />
+    </resultMap>
+    
+    <select id="countAlarmType1" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="countMap">
+		select m.dev_type devType,1 alarmType,m.type_id alarmSource,m.name,IFNULL(n.total,0) total,IFNULL(n.state0,0)
+		state0,IFNULL(n.state1,0) state1,IFNULL(n.state2,0) state2,IFNULL(n.state3,0) state3,
+		IFNULL(n.state4,0) state4,IFNULL(n.state5,0) state5
+	
+		from (
+		select * from pdf_code where status = 15) m left join (
+		select g.*,sum(case when g.state = 0 or g.state=1 or g.state=2 or g.state=3 or g.state=4 or g.state=5 then 1 else 0 end)
+		total,
+		sum(case when g.state = 0 then 1 else 0 end) state0,sum(case when g.state = 1 then 1 else 0 end) state1,
+		sum(case when g.state = 2 then 1 else 0 end) state2,sum(case when g.state = 3 then 1 else 0 end) state3,
+		sum(case when g.state = 4 then 1 else 0 end) state4,sum(case when g.state = 5 then 1 else 0 end) state5
+		from
+		(
+		select a.id,c.name,1 alarmType,a.alarm_source alarmSource,a.state,b.dev_type
+		from pdf_order a inner join t_device b on a.dev_id = b.id
+		inner join pdf_org po on po.t_org_id = b.org_id
+        INNER JOIN sys_user_bureau ub on ub.bureau_id = po.bureau_id
+		inner JOIN t_code c on b.dev_type = c.id and b.type_id = c.type_id   
+         <where>
+            ub.user_id = #{userId}
+            <if test="alarmAddr != null and alarmAddr != ''">
+                and a.alarm_addr = #{orgId}
+            </if>
+           
+            <if test="typeId != null and typeId != ''">
+                and b.type_id = #{typeId}
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                and a.alarm_type = #{alarmType} 
+            </if>           
+            <if test="alarmStartTime != null and alarmStartTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &gt;= DATE_FORMAT(#{alarmStartTime},'%Y-%m-%d')
+            </if>
+            <if test="alarmEndTime != null and alarmEndTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &lt;= DATE_FORMAT(#{alarmEndTime},'%Y-%m-%d')
+            </if>
+        </where>         
+      ) g  group BY g.alarmSource,g.dev_type) n on  m.dev_type = n.dev_type and m.type_id = n.alarmSource
+        <where>
+      <if test="alarmSource != null and alarmSource != ''">
+           and m.type_id  = #{alarmSource}
+      </if>
+       <if test="devType != null and devType != ''">
+           and b.dev_type = #{devType}
+       </if>
+        </where> 
+    </select>
+       
+
+    <select id="countAlarmType" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultMap="countMap">
+        select g.*,sum(case when g.state = 0 or g.state=1 or g.state=2 or g.state=3 or g.state=4 or g.state=5 then 1 else 0 end) total,
+        sum(case when g.state = 0 then 1 else 0 end) state0,sum(case when g.state = 1 then 1 else 0 end) state1,
+        sum(case when g.state = 2 then 1 else 0 end) state2,sum(case when g.state = 3 then 1 else 0 end) state3,
+        sum(case when g.state = 4 then 1 else 0 end) state4,sum(case when g.state = 5 then 1 else 0 end) state5 
+        from
+        (select a.id,c.name,a.alarm_type alarmType,a.alarm_source alarmSource,a.state,b.dev_type
+        from pdf_order a inner join t_device b on a.dev_id = b.id 
+        inner join pdf_org po on po.t_org_id = b.org_id
+        INNER JOIN sys_user_bureau ub on ub.bureau_id = po.bureau_id
+        inner JOIN t_code c on b.dev_type = c.id and b.type_id = c.type_id
+        <where>
+         ub.user_id  =#{userId}
+            <if test="alarmAddr != null and alarmAddr != ''">
+                and a.alarm_addr = #{orgId}
+            </if>
+            <if test="devType != null and devType != ''">
+                and b.dev_type = #{devType}
+            </if>
+            <if test="typeId != null and typeId != ''">
+                and b.type_id = #{typeId}
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                and a.alarm_type = #{alarmType}
+            </if>
+            <if test="alarmSource != null and alarmSource != ''">
+                and a.alarm_source = #{alarmSource}
+            </if>
+            <if test="alarmStartTime != null and alarmStartTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &gt;= DATE_FORMAT(#{alarmStartTime},'%Y-%m-%d')
+            </if>
+            <if test="alarmEndTime != null and alarmEndTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &lt;= DATE_FORMAT(#{alarmEndTime},'%Y-%m-%d')
+            </if>
+        </where>
+         ) g
+         group BY g.dev_type        
+    </select>
+      
+    
+    <select id="countPartmentAlarm" parameterType="com.jeeplus.modules.warm.entity.PdfOrder" resultType="map">
+        select h.*,(case when 1=1 then round(h.state5/h.total*100.00,2) else 0 end )as over from(select (case when c.type = 4 then CONCAT(city.name,'/',c.name) else
+        c.name end) pName,a.alarm_addr,b.name pdfName,a.alarm_type alarmType,a.alarm_source alarmSource,
+        sum(case when a.state = 0 or a.state=1 or a.state=2 or a.state=3 or a.state=4 or a.state=5 then 1 else 0 end) total,
+        sum(case when a.state = 0 then 1 else 0 end) state0,sum(case when a.state = 1 then 1 else 0 end) state1,
+        sum(case when a.state = 2 then 1 else 0 end) state2,sum(case when a.state = 3 then 1 else 0 end) state3,sum(case when a.state = 4 then 1 else 0 end) state4,
+        sum(case when a.state = 5 then 1 else 0 end) state5
+         from pdf_order a LEFT JOIN t_org b on a.alarm_addr = b.id LEFT JOIN t_org c on b.parent_id = c.id left join t_org city on c.parent_id = city.id
+         left join t_device k on a.dev_id = k.id left join t_code w on k.dev_type = w.id and k.type_id = w.type_id
+        <where>
+            <if test="alarmAddr !=null and alarmAddr !=''">
+                and b.parent_ids like '%${alarmAddr}%'
+            </if>
+            <if test="pdfName != null and pdfName != ''">
+                and b.name like '%${pdfName}%'
+            </if>
+            <if test="devType != null and devType != ''">
+                and k.dev_type = #{devType}
+            </if>
+            <if test="typeId != null and typeId != ''">
+                and k.type_id = #{typeId}
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                and a.alarm_type = #{alarmType}
+            </if>
+            <if test="alarmSource != null and alarmSource != ''">
+                and a.alarm_source = #{alarmSource}
+            </if>
+            <if test="alarmStartTime != null and alarmStartTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &gt;= DATE_FORMAT(#{alarmStartTime},'%Y-%m-%d')
+            </if>
+            <if test="alarmEndTime != null and alarmEndTime != ''">
+                and DATE_FORMAT(a.alarm_time,'%Y-%m-%d') &lt;= DATE_FORMAT(#{alarmEndTime},'%Y-%m-%d')
+            </if>
+        </where>
+         GROUP BY a.alarm_addr) h
+    </select>
+
+    <resultMap id="orgMap" type="map">
+        <id property="id" column="id" javaType="String" />
+        <id property="pId" column="pId" javaType="String" />
+    </resultMap>
+
+    <select id="getOrgList" resultMap="orgMap">
+        select id,name, parent_id pId from t_org where type &lt;=3 and type &gt;1 order by type asc
+    </select>
+
+</mapper>

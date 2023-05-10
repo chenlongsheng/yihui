@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.machine.dao.TDeviceReportDao">
+
+
+	<select id="tDeviceRportList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		 CONCAT(d.id) id ,
+		CONCAT(dd.ip,'_',dd.bus_addr) name 
+		FROM
+		t_device d inner join t_device_detail dd on dd.id = d.id
+		where 
+		dev_type = 226 				
+	</select>
+
+
+    <select id="tChannelRportList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		CONCAT(#{str}) as '分区名称' ,
+		CONCAT(MAX(case when ch_type = 261 then history_value end)) '最高温度',
+		CONCAT(MAX(case when ch_type = 262 then history_value end)) '平均温度',
+		CONCAT(MAX(case when ch_type = 263 then history_value end)) '最低温度',
+		CONCAT(MAX(case when ch_type = 264 then history_value end)) '最高温度位置',
+		CONCAT(MAX(case when ch_type = 265 then history_value end)) '最低温度位置',
+		DATE_FORMAT(h.history_time,'%Y-%m-%d %H:%i') '采集时间',
+		CONCAT(dd.ip,'_',bus_addr) ip
+		FROM t_channel c
+		inner join t_history_data_final h on h.ch_id = c.id
+		 left join t_device_detail dd on dd.id = c.dev_id
+		where c.dev_id =#{devId} and (h.history_time &gt;= #{time} and h.history_time &lt;= CONCAT(#{time},' 23:59:59'))
+		and c.name like CONCAT('%',#{str},'%') GROUP BY DATE_FORMAT(h.history_time,'%Y-%m-%d %H:%i')  
+	</select>
+
+
+	<select id="numberList" resultType="java.lang.String">
+		SELECT model_type model FROM pdf_code where status = 28
+	</select>
+	
+</mapper>

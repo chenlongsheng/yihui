@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.warm.dao.PdfOrderRecorderDao">
+
+	<insert id="addOrderRecorder" parameterType="com.jeeplus.modules.warm.entity.PdfOrderRecorder">
+		insert into pdf_order_recorder
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null and id != ''">
+				id,
+			</if>
+			<if test="userId != null and userId != ''">
+				user_id,
+			</if>
+			<if test="date != null and date != ''">
+				date,
+			</if>
+			<if test="state != null">
+				state,
+			</if>
+			<if test="orderId != null and orderId != ''">
+				order_id,
+			</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null and id != ''">
+				#{id},
+			</if>
+			<if test="userId != null and userId != ''">
+				#{userId},
+			</if>
+			<if test="date != null and date != ''">
+				#{date},
+			</if>
+			<if test="state != null">
+				#{state},
+			</if>
+			<if test="orderId != null and orderId != ''">
+				#{orderId},
+			</if>
+		</trim>
+	</insert>
+<!--    获取处理流程 -->
+	<select id="getRecorderList" parameterType="com.jeeplus.modules.warm.entity.PdfOrderRecorder" resultType="map">
+		select
+		DATE_FORMAT(a.date,'%Y-%m-%d %H:%i:%s') date,
+		a.state,
+		b.name,
+		IFNULL(pdo.reason,'') reason,
+        IFNULL(b.mobile,'') mobile
+		from
+		pdf_order_recorder a 
+		left join pdf_order pdo on  pdo.id= a.order_id
+		left join sys_user b on	a.user_id = b.id
+		where 
+		a.order_id=#{orderId} ORDER BY a.state
+	</select>
+
+
+	<!-- 以下配电房工单模板 -->
+	<insert id="insertTemplateDetail">
+		insert into pdf_order_template
+		(user_id,template_detail,create_date)
+		values
+		(#{userId},#{templateDetail},now());
+	</insert>
+
+
+	<select id="getTemplateList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		a.id,
+		a.user_id userId,
+		b.name,
+		template_detail templateDetail,
+		DATE_FORMAT(a.create_date,'%Y/%m/%d %h:%m:%s') createDate
+	    from 
+	    pdf_order_template a 
+	    left join sys_user b on a.user_id = b.id
+		<where>
+			<if test="id !=null and id !=''">
+				 and a.id = #{id}
+			</if>
+			<if test="name !=null and name !=''">
+				 and b.name like CONCAT('%',#{name},'%')
+			</if>
+			<if test="beginDate !=null and beginDate !=''">
+				and a.create_date &gt;= #{beginDate}
+			</if>
+			<if test="endDate !=null and endDate !=''">
+				and a.create_date &lt;= #{endDate}
+			</if>
+		</where>
+         order by a.create_date desc
+	</select>
+
+	<delete id="deleteTemplate">
+		delete from pdf_order_template where id =#{id}
+	</delete>
+
+	<update id="updateTemplate">
+		update pdf_order_template set template_detail =#{templateDetail} where id = #{id}
+	</update>
+
+
+
+</mapper>

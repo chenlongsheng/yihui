@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.settings.dao.TAlarmPolicyDao">
+
+	<sql id="tAlarmPolicyColumns">
+		CONCAT(a.id)  AS "id",
+		a.ch_id AS "chId",
+		a.type_id AS "typeId",
+		a.ch_type AS "chType",
+		a.org_id AS "orgId",
+		a.level AS
+		"level",
+		a.low_value AS "lowValue",
+		a.high_value AS "highValue",
+		a.dev_type AS "devType"
+	</sql>
+
+	<sql id="tAlarmPolicyJoins">
+	</sql>
+
+	<select id="get" resultType="TAlarmPolicy">
+		SELECT
+		<include refid="tAlarmPolicyColumns" />
+		,
+		b.name as chName, 
+		c.name as orgName,
+		d.name as codeName,
+		e.type_name as typeName
+		FROM
+		 t_alarm_policy a
+		 LEFT JOIN 	t_channel b on a.ch_id = b.id
+		LEFT JOIN t_org c on a.org_id = c.id
+		LEFT JOIN t_code d on a.ch_type = d.id and a.type_id = d.type_id
+		LEFT JOIN t_code_type e on a.type_id = e.id
+		WHERE a.id = #{id}
+	</select>
+
+	<select id="findList" resultType="TAlarmPolicy">
+		SELECT
+		<include refid="tAlarmPolicyColumns" />
+		,
+		b.name as chName,
+		 c.name as orgName,
+		 d.name as codeName,
+		 e.type_name as typeName
+		FROM 
+		t_alarm_policy a
+		LEFT JOIN t_channel b on a.ch_id = b.id
+		LEFT JOIN t_org c on a.org_id = c.id
+		LEFT JOIN t_code d on a.ch_type = d.id and a.type_id = d.type_id
+		LEFT JOIN t_code_type e on a.type_id = e.id
+		<where>
+			<if test="chName != null and chName != ''">
+				AND b.name like concat('%',#{chName},'%')
+			</if>
+			<if test="chType != null and chType != ''">
+				AND a.ch_type = #{chType}
+			</if>
+			<if test="orgId != null and orgId != ''">
+				AND c.id in (SELECT id from t_org where parent_ids
+				like concat('%',#{orgId},'%') or id = #{orgId})
+			</if>
+			<if test="level != null and level != ''">
+				AND a.level = #{level}
+			</if>
+			<if test="typeId != null and typeId != ''">
+				AND a.type_id = #{typeId}
+			</if>
+		</where>
+	</select>
+
+	<select id="findAllList" resultType="TAlarmPolicy">
+		SELECT
+		<include refid="tAlarmPolicyColumns" />
+		FROM t_alarm_policy a
+		<include refid="tAlarmPolicyJoins" />
+		<where>
+
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="findTypeListByUserId" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		a.type_id AS "typeId",
+		a.ch_type AS "chType",
+		a.level AS	"level",
+		a.low_value AS "lowValue",
+		a.high_value AS "highValue"
+		from 
+		t_alarm_policy a 		
+		where ch_id = 0 and ch_type in (${chType}) and type_id in (${typeId}) and dev_type =#{devType}
+		and
+		a.org_id =  (SELECT t_org_id from sys_user_bureau u inner join pdf_org o on o.bureau_id = u.bureau_id where user_id = #{userId} limit 1)
+	</select>
+	
+	
+	<select id="devTypeByDevId" resultType="java.lang.String">   
+	     SELECT dev_type devType from t_device where id = #{devId}
+	</select>
+	
+
+	<select id="getUserOrgList" resultType="java.lang.String">
+		select t_org_id orgId from sys_user_bureau u inner join pdf_org o on o.bureau_id = u.bureau_id 		
+		where user_id =#{userId}
+	</select>
+
+	<insert id="insert">
+		INSERT INTO t_alarm_policy(
+		id,
+		ch_id,
+		type_id,
+		ch_type,
+		org_id,
+		level,
+		low_value,
+		high_value,
+		dev_type
+		)
+		VALUES (
+		null,
+		#{chId},
+		#{typeId},
+		#{chType},
+		#{orgId},
+		#{level},
+		#{lowValue},
+		#{highValue},
+		#{devType}
+		)
+	</insert>
+
+	<update id="update">
+		UPDATE 
+		t_alarm_policy 
+		SET
+		low_value =#{lowValue},,
+		high_value = #{highValue}
+		WHERE ch_id = 0 and
+		dev_type = #{devType} and
+		type_id in (#{typeId}) and
+		ch_type in (#{chType}) and
+		org_id in 
+		(SELECT t_org_id from sys_user_bureau u inner join pdf_org o on o.bureau_id = u.bureau_id  where user_id = #{userId}) and level = #{level} and low_value = #{oldLowValue}
+	</update>
+
+
+	<!--物理删除 -->
+	<update id="deleteAlarmPolicy">
+		DELETE from 
+		t_alarm_policy 
+		where
+        org_id in (SELECT t_org_id from sys_user_bureau u inner join pdf_org o on o.bureau_id = u.bureau_id  where user_id = #{userId})
+		<if test="devType !=null and devType !=''">
+			and dev_type = #{devType}
+		</if>
+		<if test="chId ==null and chId ==''">
+			and ch_id = 0
+		</if>
+		<if test="chId !=null and chId !=''">
+			and ch_id != 0
+		</if>
+	</update>
+
+	<!--删除 -->
+	<update id="deleteAlarmPolicyByChId">
+		DELETE from t_alarm_policy 
+		where 
+		ch_id in 
+		(SELECT b.id from t_device a INNER JOIN t_channel b on a.id = b.dev_id where a.id in (${devIds}))
+	</update>
+
+	<select id="getAlarmPolicyList" resultType="com.jeeplus.common.persistence.MapEntity">
+		select 
+		c.ch_type chType,
+		c.type_id typeId,
+		d.name devTypeName,
+		`level`,
+		low_value lowValue,
+		high_value highValue 
+		from
+		t_device a 
+		inner join t_channel b on a.id = b.dev_id
+		INNER JOIN	t_alarm_policy c on c.ch_id = b.id
+		left join t_code d on d.id= c.ch_type and d.type_id = c.type_id
+		where 
+		a.id = #{devId}
+		and c.ch_id != 0 and b.ch_type in (${chType}) and b.type_id in (${typeId}) order BY c.ch_type and c.type_id,`level`
+	</select>
+	
+	<!-- 根据实体名称和字段名称和字段值获取唯一记录 -->
+	<select id="findUniqueByProperty" resultType="TAlarmPolicy" statementType="STATEMENT">
+		select * FROM t_alarm_policy where
+		${propertyName} = '${value}'
+	</select>
+	<!-- 获取level级别 -->
+	<select id="codeList" resultType="TCode">
+		select * from t_code
+		<where>
+			<if test="codeTypeId != null and codeTypeId != ''">
+				and type_id = #{codeTypeId}
+			</if>
+		</where>
+	</select>
+	<!-- 获取通道主类型 -->
+	<select id="codeTypeList" resultType="TCodeType">
+		SELECT * FROM t_code_type where id in(2,3,4)
+	</select>
+
+	<select id="getChIdByDevId" resultType="java.lang.String">
+		select 
+		CONCAT(id) id 
+		from
+		t_channel 
+		where dev_id in (#{devId}) and ch_type in (#{chType}) and type_id in (#{typeId})
+		<if test="chNo !=null and chNo !=''">
+			and ch_no=#{chNo}
+		</if>
+	</select>
+	
+	<select id="getDeviceByPolicy" resultType="com.jeeplus.common.persistence.MapEntity">
+	    select 
+		o.name orgName,
+		IFNULL(td.addr,'') addr,
+		td.dev_type devType,
+		concat(o.id) orgId,
+		td.id devId,
+		td.name devName
+		from
+        t_alarm_policy ap 
+        inner join t_channel tc on tc.id = ap.ch_id
+		inner join t_device td on td.id = tc.dev_id
+		inner join t_org o on o.id = td.org_id
+		inner join pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id = og.bureau_id
+		where
+		uo.user_id= #{userId} and td.dev_type = #{devType} group by td.id
+    </select>
+    	
+    <select id="getOrgPidsBypolicy" resultType="java.lang.String">
+        select 
+		CONCAT(o.parent_ids,td.org_id) parentIds
+		from t_alarm_policy ap 
+		inner join t_channel tc on tc.id = ap.ch_id
+		inner join t_device td on td.id = tc.dev_id
+		inner join t_org o on o.id = td.org_id
+		inner join pdf_org og on og.t_org_id = o.id
+		inner join sys_user_bureau uo on uo.bureau_id = og.bureau_id
+		where 
+		uo.user_id= #{userId} and td.dev_type = #{devType} group by td.org_id
+    </select>
+    
+    <select id="getOrgList" resultType="com.jeeplus.common.persistence.MapEntity">  
+       select 
+       CONCAT(id) id,
+       CONCAT(parent_id) pId,
+       name,
+       type 
+       from 
+       t_org 
+       where id in (${pIds})
+    </select>
+    
+    <update id="deletePolicyByDeviceIds">
+		delete from t_alarm_policy
+		where 
+		ch_id in (
+		select tc.id from t_device td inner JOIN t_channel tc on tc.dev_id = td.id
+		where td.id in (${devIds}))
+    </update>
+</mapper>

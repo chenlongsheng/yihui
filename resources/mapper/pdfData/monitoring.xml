@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.pdfData.dao.MonitoringDao">
+    <select id="countMonitoring" parameterType="map" resultType="int">
+        select count(*) from pdf_dev_code a
+         left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+         left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type}
+    </select>
+
+    <select id="countMonthEnergy" parameterType="map" resultType="double">
+         select (case when sum(historyValue) is null then 0 else sum(historyValue) end ) as historyValue ,history_time from (select ch_id,max(history_value) historyValue,history_time as history_time
+        from (select *from t_history_data_final where ch_id in
+        (select id from t_channel where dev_id in (select b.id from pdf_dev_code a
+        left join t_device b on a.code_id = b.dev_type and a.code_type_id = b.type_id
+        left join t_org c on b.org_id = c.id where (b.org_id =#{orgId} or c.parent_ids like '%${orgId}%') and a.id=#{type})
+        ) and DATE_FORMAT(history_time,'%Y/%m') =DATE_FORMAT(#{date},'%Y/%m')
+         ORDER BY history_time desc
+        )a GROUP BY DATE_FORMAT(history_time,'%Y/%m/%d'),ch_id) aa
+    </select>
+</mapper>

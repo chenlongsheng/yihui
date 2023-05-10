@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.bim.dao.SourceElementDao">
+	<insert id="insert">
+		INSERT INTO csit_source_element(
+			id,
+			uuid,
+			building_uuid,
+			storey_uuid,
+			storey_name,
+			elemen_name,
+			elem_type,
+			elem_type_name,
+			created_date
+		) VALUES (
+			#{id},
+			#{uuid},
+			#{buildingUuid},
+			#{storeyUuid},
+			#{storeyName},
+			#{elemenName},
+			#{elemType},
+			#{elemTypeName},
+			#{createdDate}
+		)
+	</insert>
+
+	<delete id="delByBuildingUuid">
+		DELETE FROM csit_source_element
+		WHERE building_uuid = #{buildingUuid}
+	</delete>
+
+	<select id="findList" resultType="com.jeeplus.modules.bim.entity.SourceElement">
+		SELECT
+			id,
+			uuid,
+			building_uuid,
+			storey_uuid,
+			storey_name,
+			elemen_name,
+			elem_type,
+			elem_type_name,
+			created_date
+		FROM csit_source_element
+		<where>
+			<if test="buildingUuid != null and buildingUuid != ''">
+				AND building_uuid LIKE concat('%',#{buildingUuid},'%')
+			</if>
+			<if test="storeyUuid != null and storeyUuid != ''">
+				AND storey_uuid LIKE concat('%',#{storeyUuid},'%')
+			</if>
+			<if test="elemType != null and elemType != ''">
+				AND elem_type LIKE concat('%',#{elemType},'%')
+			</if>
+		</where>
+	</select>
+</mapper>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.ElecUnitStrategyDao">
+
+
+	<insert id="insert">
+		insert into star_elec_unit_strategy (unit_id,opr_type,value,month,real_value,operator) 
+		values (#{unitId},#{oprType},#{value},#{month},#{realValue},#{operator})
+	</insert>
+
+
+	<select id="get" resultType="com.jeeplus.modules.starnet.entity.ElecUnitStrategy">
+		select 
+		unit_id unitId,
+		opr_type oprType,
+		real_value realValue,
+		value,
+		month
+		from star_elec_unit_strategy
+		where unit_id = #{unitId}
+		and month = #{month}
+	</select>
+	
+	<select id="getUnitIdByLoopOrgCode" resultType="String">
+		select sulo.unit_id
+		from star_unit_loop_org sulo
+		where sulo.loop_org_id = 
+		(
+		select too.id
+		from t_org too
+		where too.code = #{orgCode} 
+		)
+		limit 1
+	</select>
+	
+
+	<select id="findList" resultType="com.jeeplus.modules.starnet.entity.ElecUnitStrategy">
+		select 
+		seus.unit_id unitId,
+		seus.opr_type oprType,
+		seus.value,
+		seus.month,
+		seu.name
+		from star_elec_unit_strategy seus
+		inner join star_electricity_unit seu
+		on seus.unit_id = seu.id
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+				ORDER BY update_date DESC
+			</otherwise>
+		</choose>
+	</select>
+
+
+	<update id="update">
+		update 
+		star_elec_unit_strategy
+		set 
+		opr_type = #{oprType},
+		value = #{value},
+		month = #{month},
+		real_value = #{realValue},
+		operator = #{operator}
+		where unit_id = #{unitId}
+	</update>
+
+	<delete id="delete">
+		delete
+		from
+		star_elec_unit_strategy
+		where unit_id = #{unitId}
+		and month = #{month}
+	</delete>
+
+</mapper>

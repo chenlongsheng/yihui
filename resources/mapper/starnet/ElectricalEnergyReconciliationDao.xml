@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.ElectricalEnergyReconciliationDao">
+
+	<select id="getLoopEnergyReconciliationSum" resultType="Long">
+		select 
+		sum(
+		case opr_type 
+		when 1
+		then
+		seer.electric_quantity
+		when 2
+		then
+		-seer.electric_quantity
+		else seer.electric_quantity end
+		) 
+		from star_electrical_energy_reconciliation seer
+		where seer.exception_state = 1
+		<if test="loopId !=null and loopId !=''">
+			and seer.loop_id in (${loopId}) 
+		</if>	
+	</select>
+
+	<select id="findList" resultType="com.jeeplus.modules.starnet.entity.ElectricalEnergyReconciliation">
+		select 
+		seer.id,
+		too.name,
+		seer.loop_id loopId,
+		seer.exception_state exceptionState,
+		seer.adjust_time adjustTime,
+		seer.opr_type oprType,
+		case opr_type 
+		when 1
+		then
+		seer.electric_quantity
+		when 2
+		then
+		-seer.electric_quantity
+		else seer.electric_quantity end electricQuantity,
+		
+		
+		case opr_type 
+		when 1
+		then
+		seer.money
+		when 2
+		then
+		-seer.money
+		else seer.money end money,
+		
+		seer.create_date createDate
+		
+		
+		from star_electrical_energy_reconciliation seer
+		inner join t_org too
+		on seer.loop_id = too.id
+		where 1=1
+		<if test="exceptionState !=null and exceptionState !=''">
+			and seer.exception_state = #{exceptionState} 
+		</if>
+		
+		<if test="loopId !=null and loopId !=''">
+			and seer.loop_id in (${loopId}) 
+		</if>		
+		
+		order by seer.id desc
+
+	</select>
+	
+	
+	
+	<insert id="insert">
+		insert into star_electrical_energy_reconciliation 
+		(
+		loop_id,
+		exception_state,
+		adjust_time,
+		opr_type,
+		electric_quantity,
+		money,
+		create_date,
+		update_date
+		) 
+		values 
+		(
+		#{loopId},
+		#{exceptionState},
+		#{adjustTime},
+		#{oprType},
+		#{electricQuantity},
+		#{money},
+		#{createDate},
+		#{updateDate}
+		)
+	</insert>
+
+	<delete id="delete">
+		delete 
+		from star_electrical_energy_reconciliation
+		where id = #{id}
+	</delete>
+
+
+</mapper>

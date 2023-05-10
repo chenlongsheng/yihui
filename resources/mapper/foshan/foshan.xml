@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.foshan.dao.FoshanDao">
+
+	<select id="getDeviceAndData" resultType="java.util.HashMap">
+		select
+		td.id "devId",
+		td.dev_type "devType",
+		tc.param0 "param0",
+		tc.param1 "param1",
+		tc.param2 "param2",
+		tc.ch_type "chType",
+		trd.real_value "realValue",
+		trd.real_time "realTime",
+		trd.warn "warn"
+		from t_device td
+		inner join t_channel tc on td.id = tc.dev_id
+		inner join t_real_data trd on tc.id = trd.id
+	</select>
+
+
+
+
+
+
+</mapper>

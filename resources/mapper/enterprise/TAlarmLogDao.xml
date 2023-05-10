@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.enterprise.dao.TAlarmLogDao">
+    
+	<sql id="tAlarmLogColumns">
+		a.id AS "id",
+		a.ch_id AS "chId",
+		a.alarm_level AS "alarmLevel",
+		a.occur_time AS "occurTime",
+		a.status AS "status",
+		a.proc_time AS "procEndTime",
+		a.last_occur_time AS "latestOccurTime",
+		a.alarm_value AS "alarmValue"
+	</sql>
+	
+	<sql id="tAlarmLogJoins">
+	</sql>
+	
+	
+	<select id="findPageOfAlarmLog" resultType="java.util.HashMap" >
+		SELECT 
+			<include refid="tAlarmLogColumns"/>,
+			CONCAT((SELECT oo.name FROM t_org oo WHERE oo.code = LEFT(o.code,LENGTH(o.code)-2)),'/',o.name) orgname,
+			td.name devname,tc.name channeltypename,c.name channelname,o.id orgid
+		FROM t_alarm_log a
+		LEFT JOIN t_channel c
+		ON a.ch_id = c.id
+		LEFT JOIN t_org o
+		ON c.logic_org_id = o.id
+		LEFT JOIN t_device td
+		ON c.dev_id = td.id
+		LEFT JOIN t_code tc 
+		ON c.ch_type = tc.id AND c.type_id = tc.type_id
+		<include refid="tAlarmLogJoins"/>
+		<where>
+			AND o.code like CONCAT((SELECT oo.code FROM t_org oo WHERE oo.id = #{eid}),'%')
+			<if test="chId != null and chId != ''">
+				AND a.ch_id = #{chId}
+			</if>
+			<if test="alarmLevel != null and alarmLevel != ''">
+				AND a.alarm_level = #{alarmLevel}
+			</if>
+			<if test="occurTime != null and occurTime != ''">
+				AND a.occur_time = #{occurTime}
+			</if>
+			<if test="procUserId != null and procUserId != ''">
+				AND a.proc_user_id = #{procUserId}
+			</if>
+			<if test="procTime != null and procTime != ''">
+				AND a.proc_time = #{procTime}
+			</if>
+			<if test="status != null and status != ''">
+				AND a.status = #{status}
+			</if>
+		</where>
+		<choose>
+			<when test="page !=null and page.orderBy != null and page.orderBy != ''">
+				ORDER BY ${page.orderBy}
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="getWeekAlarmLog" resultType="java.util.HashMap" >
+		SELECT 
+			<include refid="tAlarmLogColumns"/>,
+			CONCAT((SELECT oo.name FROM t_org oo WHERE oo.code = LEFT(o.code,LENGTH(o.code)-2)),'/',o.name) orgname,
+			td.name devname,tc.name channeltypename,c.name channelname,o.id orgid
+		FROM t_alarm_log a
+		LEFT JOIN t_channel c
+		ON a.ch_id = c.id
+		LEFT JOIN t_org o
+		ON c.logic_org_id = o.id
+		LEFT JOIN t_device td
+		ON c.dev_id = td.id
+		LEFT JOIN t_code tc 
+		ON c.ch_type = tc.id AND c.type_id = tc.type_id
+		<include refid="tAlarmLogJoins"/>
+		<where>
+			a.occur_time >date_sub(curdate(),interval 7 day)
+		</where>
+	</select>	
+	
+	
+	
+</mapper>

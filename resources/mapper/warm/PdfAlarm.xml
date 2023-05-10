@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jeeplus.modules.warm.dao.PdfAlarmDao">
+
+
+
+     <select id="getAlarmListByPdfId" resultType="map">	
+    	SELECT o.name,td.name dev_name,td.addr,t.occur_time,t.alarm_level,concat(tc.name,'报警') alarm_name,t.status
+		FROM t_alarm_log t 
+		INNER JOIN t_channel tc 
+		ON t.ch_id = tc.id 
+		inner join t_device td 
+		ON td.id = tc.dev_id
+		INNER JOIN t_org o 
+		ON  td.org_id = o.id 
+		WHERE o.code like concat(#{code},'%') 		
+    </select>
+
+     <select id="getAlarmListGroupByChType" resultType="map">
+    	SELECT count(*) count,tcode.name devType
+		FROM t_alarm_log t 
+		INNER JOIN t_channel tc 
+		ON t.ch_id = tc.id inner join t_device td on td.id = tc.dev_id
+		INNER JOIN t_org o 
+		ON td.org_id = o.id 
+		INNER JOIN t_code tcode 
+		ON td.dev_type = tcode.id and td.type_id = tcode.type_id 
+		WHERE o.code like concat(#{code},'%') 
+		AND (t.status = 1 or t.status is null)  and td.dev_type not in (13)
+		GROUP BY td.dev_type
+    </select>
+
+    <select id="getAlarmListByChType" resultType="map">
+    	SELECT * FROM 
+		(
+		(
+		SELECT
+		t.id, 
+		DATE_FORMAT(t.occur_time,"%Y-%m-%d %k:%i:%s") alarmTime,
+		CONCAT(tcode.name,'报警') alarmType,
+		concat(' ',t.alarm_value,' ') real_value,
+		tcode.type_id,
+		tcode.monad,
+		tc.name chName,
+		tc.param1 param1,
+		tc.param2 param2
+		FROM t_alarm_log t 
+		INNER JOIN t_channel tc 
+		ON t.ch_id = tc.id
+		INNER JOIN t_org o
+		ON tc.logic_org_id = o.id
+		INNER JOIN t_code tcode
+		ON tc.ch_type = tcode.id and tc.type_id = tcode.type_id
+		WHERE o.code like concat(#{code},'%') 
+		and tcode.id = #{chType} 
+		and tcode.type_id = #{typeId} 
+		and t.status = 1
+		)
+		union 
+		(
+		SELECT 
+		t.id,
+		DATE_FORMAT(t.occur_time,"%Y-%m-%d %k:%i:%s") alarmTime,
+		CONCAT(tcode.name,'报警') alarmType,
+		concat(' ',t.alarm_value,' ') real_value,
+		tcode.type_id,
+		tcode.monad,
+		tc.name chName,
+		tc.param1 param1,
+		tc.param2 param2
+		FROM t_alarm_log t 
+		INNER JOIN t_channel tc 
+		ON t.ch_id = tc.id
+		INNER JOIN t_org o
+		ON tc.logic_org_id = o.id
+		INNER JOIN t_code tcode
+		ON tc.ch_type = tcode.id and tc.type_id = tcode.type_id
+		WHERE o.code like concat(#{code},'%') 
+		and tcode.id = #{chType} 
+		and tcode.type_id = #{typeId} 
+		and t.status is null
+		)
+		) aa
+		ORDER BY aa.alarmTime DESC
+    </select>
+
+	<update id="confirmAlarm" >
+		update t_alarm_log set status = 2 where id= #{id}
+	</update>
+	
+	
+    </mapper>

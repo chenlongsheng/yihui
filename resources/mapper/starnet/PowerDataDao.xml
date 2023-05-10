@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jeeplus.modules.starnet.dao.PowerDataDao">
+
+
+	<select id="powerDataList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+		CONCAT(IFNULL(MAX(case when c.ch_type = 105 then ROUND(history_value,2) end),'0')) '105',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 106 then ROUND(history_value,2) end),'0')) '106',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 107 then ROUND(history_value,2) end),'0')) '107',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 166 then ROUND(history_value,2) end),'0')) '166',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 167 then ROUND(history_value,2) end),'0')) '167',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 168 then ROUND(history_value,2) end),'0')) '168',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 183 then ROUND(history_value,2) end),'0')) '183',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 184 then ROUND(history_value,2) end),'0')) '185',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 170 then ROUND(history_value,2) end),'0')) '170',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 171 then ROUND(history_value,2) end),'0')) '171',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 172 then ROUND(history_value,2) end),'0')) '172',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 174 then ROUND(history_value,2) end),'0')) '174',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 175 then ROUND(history_value,2) end),'0')) '175',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 176 then ROUND(history_value,2) end),'0')) '177',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 179 then ROUND(history_value,2) end),'0')) '179',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 180 then ROUND(history_value,2) end),'0')) '180',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 181 then ROUND(history_value,2) end),'0')) '181',
+		CONCAT(IFNULL(MAX(case when c.ch_type = 187 then ROUND(history_value,2) end),'0')) mValue,
+		CONCAT(IFNULL(min(case when c.ch_type = 187 then ROUND(history_value,2) end),'0')) minValue,
+
+		DATE_FORMAT(h.history_time,'%Y-%m-%d %H:%i') '采集时间',
+		p.name '回路名称'
+		FROM t_channel c
+		inner join t_history_data_final h on
+		h.ch_id = c.id
+		inner join pdf_code p on p.status = 29 and p.id in (${ids}) and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		c.dev_id = #{devId} and (h.history_time &gt;= #{time} and h.history_time &lt;= CONCAT(#{time},' 23:59:59'))
+		GROUP BY
+		SUBSTRING(c.name,1,2),DATE_FORMAT(h.history_time,'%Y-%m-%d %H:%i') order by SUBSTRING(c.name,1,2),h.history_time
+	</select>
+
+
+	<select id="powerCodes" resultType="com.jeeplus.common.persistence.MapEntity">
+		select id,name,model chTypes,value,monad,num from star_net_code where status = 30
+	</select>
+
+	<update id="updateThresholdNum">
+		update star_net_code set num = #{num} where id = #{id}
+	</update>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	<select id="extremalDatas" resultType="com.jeeplus.common.persistence.MapEntity">
+		select
+		<if test="chTypes=='105,106,107'">
+			CONCAT(MIN(case when c.ch_type = 105 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 105 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 105 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type = 105 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 105 then history_value end),2)) 'avgvalue1',
+
+			CONCAT(MIN(case when c.ch_type = 106 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 106 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 106 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 106 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 106 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 107 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 107 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 107 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 107 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 107 then history_value end),2))'avgvalue3',
+		</if>
+		<if test="chTypes=='166,167,168'">
+			CONCAT(MIN(case when c.ch_type = 166 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 166 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 166 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 166 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 166 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 167 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 167 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 167 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 167 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 167 then history_value end),2)) 'avgvalue3',
+
+			CONCAT(MIN(case when c.ch_type = 168 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 168 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 168 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type =168 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 168 then history_value end),2)) 'avgvalue1',
+		</if>
+		<if test="chTypes=='183,184,185'">
+			CONCAT(MIN(case when c.ch_type = 183 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 183 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 183 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type =183 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 183 then history_value end),2)) 'avgvalue1',
+
+			CONCAT(MIN(case when c.ch_type = 184 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 184 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 184 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 184 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 184 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 185 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 185 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 185 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 185 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 185 then history_value end),2)) 'avgvalue3',
+		</if>
+		<if test="chTypes=='170,171,172'">
+			CONCAT(MIN(case when c.ch_type = 170 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 170 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 170 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type = 170 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+		    CONCAT(FORMAT(avg(case when c.ch_type = 170 then history_value end),2)) 'avgvalue1',
+		
+			CONCAT(MIN(case when c.ch_type = 171 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 171 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 171 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 171 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 171 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 172 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 172 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 172 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 172 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 172 then history_value end),2)) 'avgvalue3',
+		</if>
+		<if test="chTypes=='175,176,177'">
+			CONCAT(MIN(case when c.ch_type = 175 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 175 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 175 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type =175 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 175 then history_value end),2)) 'avgvalue1',
+
+			CONCAT(MIN(case when c.ch_type = 176 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 176 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 176 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 176 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 176 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 177 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 177 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 177 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 177 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 177 then history_value end),2)) 'avgvalue3',
+		</if>
+		<if test="chTypes=='179,180,181'">
+			CONCAT(MIN(case when c.ch_type = 179 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 179 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 179 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type =179 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 179 then history_value end),2)) 'avgvalue1',
+
+			CONCAT(MIN(case when c.ch_type = 180 then history_value end)) 'minvalue2',
+			CONCAT(MAX(case when c.ch_type = 180 then history_value end)) 'maxvalue2',
+			CONCAT(max(case when c.ch_type = 180 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime2',
+			CONCAT(min(case when c.ch_type = 180 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime2',
+			CONCAT(FORMAT(avg(case when c.ch_type = 180 then history_value end),2)) 'avgvalue2',
+
+			CONCAT(MIN(case when c.ch_type = 180 then history_value end)) 'minvalue3',
+			CONCAT(MAX(case when c.ch_type = 180 then history_value end)) 'maxvalue3',
+			CONCAT(max(case when c.ch_type = 180 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime3',
+			CONCAT(min(case when c.ch_type = 180 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime3',
+			CONCAT(FORMAT(avg(case when c.ch_type = 180 then history_value end),2)) 'avgvalue3',
+		</if>
+
+		<if test="chTypes=='187'">
+			CONCAT(MIN(case when c.ch_type = 187 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 187 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 187 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type =187 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 187 then history_value end),2)) 'avgvalue1',
+		</if>
+		<if test="chTypes=='174'">
+			CONCAT(MIN(case when c.ch_type = 174 then history_value end)) 'minvalue1',
+			CONCAT(MAX(case when c.ch_type = 174 then history_value end)) 'maxvalue1',
+			CONCAT(max(case when c.ch_type = 174 then DATE_FORMAT(history_time,'%H:%i') end)) 'maxtime1',
+			CONCAT(min(case when c.ch_type = 174 then DATE_FORMAT(history_time,'%H:%i') end)) 'mintime1',
+			CONCAT(FORMAT(avg(case when c.ch_type = 174 then history_value end),2)) 'avgvalue1',
+		</if>
+
+		DATE_FORMAT(h.history_time,'%Y-%m-%d') '采集时间',
+		p.name '回路名称'
+		FROM t_channel c
+		inner join t_history_data_final h on
+		h.ch_id = c.id
+		inner join pdf_code p on p.status = 29 and p.id in (${ids}) and
+		SUBSTR(c.name,1,2) = p.model_type
+		where
+		c.dev_id = #{devId} and c.ch_type in (${chTypes}) and
+		(h.history_time &gt;= #{startTime} and h.history_time &lt;=	CONCAT(#{endTime},' 23:59:59'))
+		GROUP BY day(h.history_time) order by SUBSTRING(c.name,1,2),h.history_time
+	</select>
+	
+	
+	
+	<select id="getDayDataList" resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT 
+		too.name,
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') historyTime,
+		<!-- 
+		max(case tc.ch_type when 153 then thdf.history_value end) as '功率因素',
+		max(case tc.ch_type when 174 then thdf.history_value end) as '电源频率',
+		max(case tc.ch_type when 105 then thdf.history_value end) as 'A相',
+		max(case tc.ch_type when 106 then thdf.history_value end) as 'B相',
+		max(case tc.ch_type when 107 then thdf.history_value end) as 'C相',
+		
+		max(case tc.ch_type when 163 then thdf.history_value end) as 'AB电压',
+		max(case tc.ch_type when 164 then thdf.history_value end) as 'BC电压',
+		max(case tc.ch_type when 165 then thdf.history_value end) as 'CA电压',
+		
+		max(case tc.ch_type when 166 then thdf.history_value end) as 'A电流',
+		max(case tc.ch_type when 167 then thdf.history_value end) as 'B电流',
+		max(case tc.ch_type when 168 then thdf.history_value end) as 'C电流',
+		
+		max(case tc.ch_type when 382 then thdf.history_value end) as 'A相总功率',
+		max(case tc.ch_type when 383 then thdf.history_value end) as 'B相总功率',
+		max(case tc.ch_type when 384 then thdf.history_value end) as 'C相总功率',
+		
+		max(case tc.ch_type when 385 then thdf.history_value end) as '总功率',
+		max(case tc.ch_type when 403 then thdf.history_value end) as '吸收有功电能',
+		max(case tc.ch_type when 404 then thdf.history_value end) as '释放有功电能'
+		 -->
+		max(case tc.ch_type when 153 then thdf.history_value end) as '153',
+		max(case tc.ch_type when 174 then thdf.history_value end) as '174',
+		max(case tc.ch_type when 105 then thdf.history_value end) as '105',
+		max(case tc.ch_type when 106 then thdf.history_value end) as '106',
+		max(case tc.ch_type when 107 then thdf.history_value end) as '107',
+		
+		max(case tc.ch_type when 163 then thdf.history_value end) as '163',
+		max(case tc.ch_type when 164 then thdf.history_value end) as '164',
+		max(case tc.ch_type when 165 then thdf.history_value end) as '165',
+		
+		max(case tc.ch_type when 166 then thdf.history_value end) as '166',
+		max(case tc.ch_type when 167 then thdf.history_value end) as '167',
+		max(case tc.ch_type when 168 then thdf.history_value end) as '168',
+		
+		max(case tc.ch_type when 382 then thdf.history_value end) as '382',
+		max(case tc.ch_type when 383 then thdf.history_value end) as '383',
+		max(case tc.ch_type when 384 then thdf.history_value end) as '384',
+		
+		max(case tc.ch_type when 385 then thdf.history_value end) as '385',
+		max(case tc.ch_type when 403 then thdf.history_value end) as '403',
+		max(case tc.ch_type when 108 then thdf.history_value / 1000 end) as '108',
+		
+		max(case tc.ch_type when 404 then thdf.history_value end) as '404'
+		
+		
+		FROM t_history_data_final thdf 
+		INNER JOIN t_channel tc 
+		ON thdf.ch_id = tc.id 
+		INNER JOIN t_org too
+		ON tc.logic_org_id = too.id
+		WHERE 
+		DATE_FORMAT(thdf.history_time,'%Y-%m-%d') = #{time}
+		AND tc.logic_org_id = #{orgId}
+		GROUP BY DATE_FORMAT(thdf.history_time,'%Y-%m-%d %H:%i:%s') 
+	</select>
+	
+	
+	
+</mapper>
