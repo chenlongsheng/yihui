@@ -236,7 +236,7 @@ public class TDeviceController extends BaseController {
                 String orgId = (Long) mapEntity.get("orgId") + "";
                 String orgName = (String) mapEntity.get("orgName");
                 String codeName = (String) mapEntity.get("codeName");
-                if (!orgId.equals("100000")) {
+                if (orgId.equals("855018047319052288") || orgId.equals("955018047319052288")  ) {
                     entity.put("check", "0");
                     entity.put("orgId", orgId);
                     entity.put("orgName", orgName);

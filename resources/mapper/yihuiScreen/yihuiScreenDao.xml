@@ -4,30 +4,55 @@
 
 
     <select id="getDeviceOnlines" resultType="com.jeeplus.common.persistence.MapEntity">
-        select count(*) count,
-        m.status,
-        case when status = 0 then '故障' when status = 1 then '在线' when status = 2 then '空闲'
-        when status =3 then '充电' else 1
+        select
+            count(*) count,
+	m.status,
+case
+
+		when status = 0 then
+		'故障'
+		when status = 1 then
+		'在线'
+		when status = 2 then
+		'空闲'
+		when status = 3 then
+		'充电' else 1
         end name
         from
-        (
+	(
+	select
+	case
+
+		when
+			dd.online = 0 then
+				0
+				when r.real_value in ( 0, 4 ) then
+				2
+				when r.real_value in ( 1, 2, 3 ) then
+				3 else 1
+		end status
+		from
+			t_device d
+			inner join t_device_detail dd on d.id = dd.id
+			left join t_channel c on c.dev_id = d.id
+			left join t_real_data r on r.id = c.id
+		where
+			org_id = 855018047319052288
+			and dev_type = 265
+			and ch_type = 258
+		) m
+	GROUP BY
+		m.status UNION
         select
-        case
-        when
-        dd.online = 0 then 0
-        when r.real_value =4 then 2
-		when r.real_value in (1,2,3) then 3
-		else 1
-        end status
+            count(*) count,
+		'1' status,
+		'在线' name
         from
-        t_device d
-        inner join t_device_detail dd on d.id = dd.id
-            left join t_channel c on c.dev_id=  d.id
-            left join t_real_data r on r.id = c.id
+            t_device d
+            inner join t_device_detail dd on d.id = dd.id
         where
-        org_id = 855018047319052288 and dev_type = 265 and ch_type= 258) m
-        GROUP BY
-        m.status
+            org_id = 855018047319052288
+          and dev_type = 265 and online &gt; 0
     </select>
 
     <select id="getLoopDevices" resultType="com.jeeplus.common.persistence.MapEntity">
@@ -74,19 +99,27 @@
     </select>
 
     <select id="getHistorys" resultType="com.jeeplus.common.persistence.MapEntity">
-        select
-            count(*) count,
-	ROUND( SUM( history_value )/ 3600, 2 ) allHour,
-	DATE_FORMAT( history_time, '%m' ) month,
-	concat( h.id ) id
+        select CONCAT(id) id,
+               ROUND(value / 3600, 0) count,
+	round( value / 3600, 2 ) allHour,
+	DATE_FORMAT( history_time, '%m' ) month
         from
-            t_history_data_final h
-            inner join t_channel c on c.id = h.ch_id
+            (
+            select
+            h.id,
+            max(history_value)- min(history_value) value,
+            h.history_time
+            FROM
+            t_channel c
+            inner join t_history_data_final h on h.ch_id = c.id
             inner join t_device d on d.id = c.dev_id
-        where
-            d.org_id = 855018047319052288
-          and dev_type = 265
-          and ch_type = 446 and h.history_time &gt; DATE_FORMAT(now(),'YY')
+            where
+            ch_type = 446
+            and d.org_id = 855018047319052288
+            GROUP BY
+            DATE_FORMAT( history_time, '%Y-%m' ),
+            h.ch_id
+            ) m
         GROUP BY
             DATE_FORMAT( history_time, '%Y-%m' )
     </select>
@@ -99,7 +132,7 @@
         b.ch_no chNo,
         DATE_FORMAT(max(a.real_time), '%Y/%m/%d %H:%i:%s') alarmTime,
         tdd.`online`,
-        '设备故障' alarmName,
+        '设备离线' alarmName,
         CONCAT(tc.type_name, '报警') prec,
         IFNULL(c.addr, '') deviceAddr,
         oo.name orgName,
@@ -145,7 +178,7 @@
         b.ch_no chNo,
         DATE_FORMAT(max(a.occur_time), '%Y/%m/%d %H:%i:%s') alarmTime,
         1 online,
-        '数据异常' alarmName,
+        concat(b.name,'异常') alarmName,
         CONCAT(tc.type_name, '报警') prec,
         IFNULL(c.addr, '') deviceAddr,
         o.name orgName,
@@ -189,31 +222,38 @@
     </select>
 
     <select id="getOrgLoops" resultType="com.jeeplus.common.persistence.MapEntity">
-        select concat(o.id)        orgId,
-               concat(o.parent_id) pId,
-               o.name              orgName,
-               loop_type           loopType
+
+        select concat(o.id)                     orgId,
+               IFNULL(GROUP_CONCAT(dev_id), '') devId,
+               concat(o.parent_id)              pId,
+               o.name                           orgName,
+               loop_type                        loopType
         from t_org o
-        where (parent_ids like CONCAT('%', #{orgId}, '%') or id = #{orgId})
+                 left join
+                 (SELECT * from t_channel GROUP by dev_id) c
+                 on c.logic_org_id = o.id
+        where (parent_ids like CONCAT('%', #{orgId}, '%') or o.id = #{orgId})
           and loop_type = #{loop}
+        GROUP BY o.id
     </select>
 
 
     <select id="getVideos" resultType="com.jeeplus.common.persistence.MapEntity">
         select concat(c.id) id, c.ch_no, c.name, channel_type, c.addr, c.play_url0
         from t_device d
-        inner join t_channel c on c.dev_id = d.id
-        where org_id = 855018047319052288  and d.dev_type = 109
+                 inner join t_channel c on c.dev_id = d.id
+        where org_id = 855018047319052288
+          and d.dev_type = 109
     </select>
 
 
     <select id="getTorg" resultType="com.jeeplus.common.persistence.MapEntity">
-        SELECT
-            changer_num totalCars,
-            level batteryCars,
-            capacity todayCars,
-            declared_quantity   presenceCars
-        from pdf_org where  t_org_id  = 855018047319052288  LIMIT 1;
+        SELECT changer_num       totalCars,
+               level             batteryCars,
+               capacity          todayCars,
+               declared_quantity presenceCars
+        from pdf_org
+        where t_org_id = 855018047319052288 LIMIT 1;
     </select>
 
 </mapper>

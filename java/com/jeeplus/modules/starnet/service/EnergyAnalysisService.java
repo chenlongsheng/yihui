@@ -35,6 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,6 +76,8 @@ public class EnergyAnalysisService {
     @Autowired
     RedisTemplate<String, String> redisTempldate;
 
+
+
     @Autowired
     private EnergyAnalysisDao energyAnalysisDao;
 
@@ -89,6 +93,9 @@ public class EnergyAnalysisService {
 
 
     public void loadDayDataByDate(String loadDate) {
+
+        redisTempldate.setDefaultSerializer(new Jackson2JsonRedisSerializer<>(Object.class));
+
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate loadDay = LocalDate.parse(loadDate, formatter);

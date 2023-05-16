@@ -37,10 +37,10 @@ public class DeviceCdpdfController extends BaseController {
     @ResponseBody
     public String getAll(HttpServletRequest requesthttp) {
 
-//		ProcesDataService.processDataDao = this.processDataDao;
+
         request = requesthttp;
         try {
-            WebSockertFilter.webSocketClient.send("{\"cmd\":\"getAll\"}");
+      //      WebSockertFilter.webSocketClient.send("{\"cmd\":\"getAll\"}");
         } catch (Exception e) {
             return ServletUtils.buildRs(false, "发送指令失败", "");
         }

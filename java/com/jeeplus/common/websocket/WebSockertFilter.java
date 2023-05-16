@@ -49,7 +49,7 @@ public class WebSockertFilter implements Filter {
      // String ws = "ws://192.168.128.40:1080";
            String ws = "ws://192.168.3.118:1080";
         //String ws="ws://127.0.0.1:8181/ws/v1/cabinet/status/"+ UUID.randomUUID().toString();
-       try {
+      /* try {
            WebSockertFilter.webSocketClient = new MyWebSocketClient(new URI(ws));
            WebSockertFilter.webSocketClient.connect();
             Timer t = new Timer();
@@ -64,7 +64,7 @@ public class WebSockertFilter implements Filter {
             }, 1000, 8000);
         } catch (URISyntaxException e) {
             //  e.printStackTrace();
-        }
+        }*/
     }
 
     // 计时器

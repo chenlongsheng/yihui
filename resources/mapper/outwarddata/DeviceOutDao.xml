@@ -7,7 +7,7 @@
         select concat(d.id)       deviceId,
                d.name             deviceName,
                IFNULL(d.addr, '') addr,
-               dd.mac,
+               IFNULL(dd.mac,dd.imei) mac,
                concat(o.id)       orgId,
                o.name             pdfName,
                d.dev_type         devType,

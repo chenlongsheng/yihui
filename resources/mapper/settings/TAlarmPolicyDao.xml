@@ -69,6 +69,38 @@
 		</where>
 	</select>
 
+	<select id="getChNames"  resultType="com.jeeplus.common.persistence.MapEntity">
+		SELECT
+			c.ch_type chType,
+			c.name,
+			c.type_id typeId,
+			tc.monad,
+			d.dev_type devType
+		from
+				( select * FROM t_device where dev_type = #{devType} limit 1 ) d
+					inner join t_channel c on c.dev_id = d.id
+					left join t_code tc on tc.id = c.ch_type
+				and tc.type_id = c.type_id
+		where
+			c.type_id = 3
+	</select>
+
+
+	<select id="getChNameDetails"  resultType="com.jeeplus.common.persistence.MapEntity">
+	SELECT
+	a.*,
+	IFNULL( b.ch_type, '' ) chType,
+	IFNULL( b.type_id, '' ) typeId,
+	IFNULL( low_value, '' ) lowValue,
+	IFNULL( high_value, '' ) highValue,
+	IFNULL( dev_type, '' ) devType
+	from
+	( select dev_type level, name from pdf_code where status = 8 ) a
+	left join ( SELECT * from t_alarm_policy where ch_type = #{chType} and type_id = #{typeId}) b on a.`level` = b.`level`
+	</select>
+
+
+
 	<select id="findAllList" resultType="TAlarmPolicy">
 		SELECT
 		<include refid="tAlarmPolicyColumns" />

@@ -12,10 +12,7 @@
 		tc.name
 		devName,
 		a.dev_type devType,
-		case when
-		b.mac is
-		null or b.mac ='' then
-		CONCAT(b.outer_id,'/',b.imei) else b.mac end mac,
+		IFNULL(d.mac,d.imei) mac,
 		b.online online,
 		CONCAT(a.addr) addr,
 		a.del_flag allWarn,
@@ -86,7 +83,6 @@
 		left join
 		t_org o on o.id = d.org_id
 		<where>
-	
 			<if test="orgId !=null and orgId != ''">
 				 (d.org_id = #{orgId} or o.parent_ids like CONCAT('%',#{orgId} ,'%'))
 				and (c.ch_type not in (24,25))

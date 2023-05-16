@@ -53,4 +53,9 @@ public interface TAlarmPolicyDao extends CrudDao<TAlarmPolicy> {
 	Set<MapEntity> getOrgList(@Param(value = "pIds") String pIds);
 	
 	void deletePolicyByDeviceIds(@Param(value = "devIds") String devIds);
+
+	List<MapEntity> getChNames(@Param(value = "devType") String devType);
+
+	List<MapEntity> getChNameDetails(@Param(value = "chType") String chType,@Param(value = "typeId") String typeId);
+
 }
